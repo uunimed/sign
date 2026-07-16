@@ -1,1 +1,367 @@
+<!DOCTYPE html>
+<html lang="ka">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>გლობალური ელ. ხელმოწერა</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 0;
+        }
+        nav {
+            background-color: #333;
+            padding: 15px;
+            text-align: center;
+        }
+        nav button {
+            background: none;
+            border: 1px solid white;
+            color: white;
+            padding: 8px 15px;
+            cursor: pointer;
+            margin: 0 5px;
+            border-radius: 4px;
+        }
+        nav button:hover { background: white; color: #333; }
+        
+        .container {
+            max-width: 600px;
+            margin: 40px auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .hidden { display: none !important; }
 
+        canvas {
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            cursor: crosshair;
+            background-color: #fff;
+            touch-action: none;
+            margin-bottom: 15px;
+        }
+        input[type="text"], input[type="password"] {
+            width: 80%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        .btn {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            font-weight: bold;
+            color: white;
+            transition: 0.2s;
+        }
+        .btn:hover { opacity: 0.9; }
+        .btn-clear { background-color: #ff4d4d; }
+        .btn-save { background-color: #4CAF50; }
+        .btn-login { background-color: #2196F3; width: 85%; }
+        .btn-logout { background-color: #555; }
+        .btn-download { background-color: #ff9800; padding: 6px 12px; font-size: 14px; margin-left: 10px; }
+
+        /* ადმინ პანელის სტილები */
+        .signature-list { margin-top: 20px; text-align: left; }
+        .signature-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #eee;
+            padding: 10px 0;
+        }
+        .signature-item img {
+            max-height: 50px;
+            border: 1px solid #f0f0f0;
+            background: #fff;
+        }
+        .signature-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .signature-name { font-weight: bold; font-size: 16px; color: #333; }
+        .header-row {
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+            border-bottom: 2px solid #ccc;
+            padding-bottom: 10px;
+            margin-bottom: 10px;
+            color: #555;
+        }
+
+        /* Popup Error (Modal) სტილები */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: white; padding: 25px; border-radius: 8px;
+            text-align: center; max-width: 300px; width: 80%;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            animation: popIn 0.3s ease;
+        }
+        .modal-content h3 { color: #e53935; margin-top: 0; }
+        @keyframes popIn {
+            from { transform: scale(0.8); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+    <nav>
+        <button onclick="showPage('signature-page')">ხელმოწერა</button>
+        <button onclick="showPage('admin-page')" id="navAdminBtn">ადმინისტრატორი</button>
+    </nav>
+
+    <!-- Error Popup Modal -->
+    <div id="errorModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3>შეცდომა!</h3>
+            <p id="errorText">აქ გამოჩნდება შეცდომის ტექსტი</p>
+            <button class="btn btn-clear" onclick="closeError()">დახურვა</button>
+        </div>
+    </div>
+
+    <!-- 1. ხელმოწერის გვერდი -->
+    <div id="signature-page" class="container">
+        <h2>მოაწერეთ ხელი</h2>
+        <canvas id="signaturePad" width="400" height="200"></canvas>
+        <br>
+        <input type="text" id="signerName" placeholder="სახელი და გვარი" required>
+        <div>
+            <button class="btn btn-clear" id="clearBtn">გასუფთავება</button>
+            <button class="btn btn-save" id="saveBtn">შენახვა</button>
+        </div>
+        <p id="msg" style="color: green; margin-top: 10px; font-weight: bold;"></p>
+    </div>
+
+    <!-- 2. ადმინისტრატორის შესვლის გვერდი -->
+    <div id="admin-page" class="container hidden">
+        <div id="login-section">
+            <h2>შესვლა</h2>
+            <input type="text" id="adminUser" placeholder="user"><br>
+            <input type="password" id="adminPassword" placeholder="password"><br>
+            <button class="btn btn-login" id="loginBtn">შესვლა</button>
+        </div>
+
+        <!-- 3. ადმინისტრატორის პანელი -->
+        <div id="dashboard-section" class="hidden">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h2>შენახული ხელმოწერები</h2>
+                <button class="btn btn-logout" id="logoutBtn">გამოსვლა</button>
+            </div>
+            
+            <div class="signature-list">
+                <div class="header-row">
+                    <span>ხელმოწერა</span>
+                    <span>ხელმომწერი / მოქმედება</span>
+                </div>
+                <div id="signaturesContainer"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase JS SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getDatabase, ref, push, set, onValue } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyATvDjEFcDxjOiT3dEs9u5fmGQT5eIC7ao",
+            authDomain: "xelmowera-a9071.firebaseapp.com",
+            databaseURL: "https://xelmowera-a9071-default-rtdb.firebaseio.com",
+            projectId: "xelmowera-a9071",
+            storageBucket: "xelmowera-a9071.firebasestorage.app",
+            messagingSenderId: "332380909705",
+            appId: "1:332380909705:web:fcf89a6924ce779f93d658"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // --- გლობალური ფუნქციები (Popup და ნავიგაცია) ---
+        window.showPage = function(pageId) {
+            document.getElementById('signature-page').classList.add('hidden');
+            document.getElementById('admin-page').classList.add('hidden');
+            document.getElementById(pageId).classList.remove('hidden');
+        };
+
+        window.showError = function(msg) {
+            document.getElementById('errorText').innerText = msg;
+            document.getElementById('errorModal').classList.remove('hidden');
+        };
+
+        window.closeError = function() {
+            document.getElementById('errorModal').classList.add('hidden');
+        };
+
+        // --- ხატვის ლოგიკა ---
+        const canvas = document.getElementById('signaturePad');
+        const ctx = canvas.getContext('2d');
+        let isDrawing = false, hasDrawn = false;
+
+        ctx.lineWidth = 2.5; 
+        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        ctx.strokeStyle = '#000080';
+
+        function startDrawing(e) { isDrawing = true; hasDrawn = true; draw(e); }
+        function stopDrawing() { isDrawing = false; ctx.beginPath(); }
+        function draw(e) {
+            if (!isDrawing) return;
+            e.preventDefault();
+            const clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+            const clientY = e.type.includes('touch') ? e.touches[0].clientY : e.clientY;
+            const rect = canvas.getBoundingClientRect();
+            ctx.lineTo(clientX - rect.left, clientY - rect.top);
+            ctx.stroke(); ctx.beginPath();
+            ctx.moveTo(clientX - rect.left, clientY - rect.top);
+        }
+
+        canvas.addEventListener('mousedown', startDrawing); canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', stopDrawing); canvas.addEventListener('mouseout', stopDrawing);
+        canvas.addEventListener('touchstart', startDrawing, { passive: false }); canvas.addEventListener('touchmove', draw, { passive: false });
+        canvas.addEventListener('touchend', stopDrawing);
+
+        document.getElementById('clearBtn').addEventListener('click', () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            hasDrawn = false;
+        });
+
+        // --- ბაზაში შენახვა ---
+        document.getElementById('saveBtn').addEventListener('click', async () => {
+            const nameInput = document.getElementById('signerName').value.trim();
+            const msgEl = document.getElementById('msg');
+
+            // ამოწმებს შეცდომებს და გამოაქვს Popup-ით
+            if (!hasDrawn) { 
+                showError("მოაწერეთ ხელი!"); 
+                return; 
+            }
+            if (nameInput === "") { 
+                showError("სახელი და გვარის ველი ცარიელია!"); 
+                return; 
+            }
+
+            const saveBtn = document.getElementById('saveBtn');
+            saveBtn.innerText = "ინახება...";
+            saveBtn.disabled = true;
+
+            const signatureDataUrl = canvas.toDataURL('image/png');
+
+            try {
+                const newSignatureRef = push(ref(db, 'signatures'));
+                await set(newSignatureRef, {
+                    name: nameInput,
+                    signatureBase64: signatureDataUrl,
+                    timestamp: Date.now()
+                });
+
+                msgEl.innerText = "ხელმოწერა წარმატებით შეინახა!";
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                document.getElementById('signerName').value = "";
+                hasDrawn = false;
+                setTimeout(() => { msgEl.innerText = ""; }, 3000);
+            } catch (error) {
+                console.error("Firebase Error:", error);
+                showError("შეცდომა ბაზაში ჩაწერისას. შეამოწმეთ ინტერნეტი და Firebase-ის პარამეტრები.");
+            } finally {
+                saveBtn.innerText = "შენახვა";
+                saveBtn.disabled = false;
+            }
+        });
+
+        // --- ადმინისტრატორის შესვლა (alex / 2911) ---
+        document.getElementById('loginBtn').addEventListener('click', () => {
+            const user = document.getElementById('adminUser').value;
+            const pass = document.getElementById('adminPassword').value;
+
+            if (user === "alex" && pass === "2911") {
+                document.getElementById('login-section').classList.add('hidden');
+                document.getElementById('dashboard-section').classList.remove('hidden');
+                loadSignatures();
+            } else {
+                showError("არასწორი მომხმარებელი ან პაროლი!");
+            }
+        });
+
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            document.getElementById('login-section').classList.remove('hidden');
+            document.getElementById('dashboard-section').classList.add('hidden');
+            document.getElementById('adminUser').value = "";
+            document.getElementById('adminPassword').value = "";
+        });
+
+        // --- მონაცემების ჩატვირთვა და გადმოწერის ფუნქცია ---
+        function loadSignatures() {
+            const container = document.getElementById('signaturesContainer');
+            container.innerHTML = "იტვირთება...";
+            
+            onValue(ref(db, 'signatures'), (snapshot) => {
+                container.innerHTML = ""; 
+                if (!snapshot.exists()) {
+                    container.innerHTML = "<p>ხელმოწერები ჯერ არ არის.</p>";
+                    return;
+                }
+                const data = snapshot.val();
+                // უახლესები გამოჩნდება ზემოთ
+                const signaturesArray = Object.keys(data).map(key => data[key]).sort((a, b) => b.timestamp - a.timestamp);
+
+                signaturesArray.forEach((sig) => {
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'signature-item';
+                    
+                    // მარცხენა მხარე (სურათი)
+                    const img = document.createElement('img');
+                    img.src = sig.signatureBase64;
+                    
+                    // მარჯვენა მხარე (სახელი და გადმოწერის ღილაკი ერთად)
+                    const infoDiv = document.createElement('div');
+                    infoDiv.className = 'signature-info';
+
+                    const nameSpan = document.createElement('span');
+                    nameSpan.className = 'signature-name';
+                    nameSpan.innerText = sig.name;
+
+                    const downloadBtn = document.createElement('button');
+                    downloadBtn.className = 'btn btn-download';
+                    downloadBtn.innerText = "გადმოწერა";
+                    
+                    // გადმოწერის ღილაკზე დაჭერის ლოგიკა
+                    downloadBtn.onclick = () => {
+                        const link = document.createElement('a');
+                        link.href = sig.signatureBase64;
+                        // ფაილს ერქმევა ადამიანის სახელი და გვარი
+                        link.download = `${sig.name}_xelmowera.png`; 
+                        link.click();
+                    };
+
+                    infoDiv.appendChild(nameSpan);
+                    infoDiv.appendChild(downloadBtn);
+
+                    itemDiv.appendChild(img);
+                    itemDiv.appendChild(infoDiv);
+                    
+                    container.appendChild(itemDiv);
+                });
+            }, (error) => {
+                showError("ვერ ჩაიტვირთა მონაცემები! შეამოწმე Firebase Rules.");
+            });
+        }
+    </script>
+</body>
+</html>
