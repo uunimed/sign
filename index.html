@@ -3,182 +3,459 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>მალე დავბრუნდები</title>
+    <title>კლინიკური ბალანსის მონიტორინგი</title>
     <style>
-        /* ფონტების იმპორტი Google Fonts-დან */
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Georgian:wght@400;700&display=swap');
+        :root {
+            --primary: #3182ce;
+            --primary-light: #ebf8ff;
+            --gray-bg: #f7fafc;
+            --border-color: #e2e8f0;
+            --text-main: #2d3748;
+            
+            /* ბალანსის ფერები */
+            --color-pos: #22543d; /* მუქი მწვანე */
+            --bg-pos: #c6f6d5;
+            --color-neg: #742a2a; /* მუქი წითელი */
+            --bg-neg: #fed7d7;
+            --color-zero: #7b341e; /* ნარინჯისფერი/ყავისფერი */
+            --bg-zero: #feebc8;
+        }
 
-        /* ძირითადი სტილები და ეკრანის განულება */
-        body, html {
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
+            padding: 15px;
+            background-color: #edf2f7;
+            color: var(--text-main);
+        }
+
+        .header-controls {
+            max-width: 1100px;
+            margin: 0 auto 15px auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        h2 { margin: 0; font-size: 1.3rem; color: #4a5568; }
+
+        .btn-add-patient {
+            background-color: #3182ce;
+            color: white;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: background 0.2s;
+        }
+        .btn-add-patient:hover { background-color: #2b6cb0; }
+
+        /* პაციენტის კარტა */
+        .patient-card {
+            max-width: 1100px;
+            margin: 0 auto 20px auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            border: 1px solid var(--border-color);
+            padding: 12px;
+        }
+
+        .patient-info-inputs {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 12px;
+            background: var(--gray-bg);
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+        }
+
+        .info-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .info-group label {
+            font-size: 0.85rem;
+            font-weight: bold;
+            color: #4a5568;
+        }
+
+        .info-group input {
+            border: 1px solid #cbd5e0;
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 0.85rem;
+            outline: none;
+            width: 150px;
+        }
+        .info-group input.room-input { width: 70px; }
+
+        .workspace {
+            display: flex;
+            gap: 20px;
+        }
+
+        /* ცხრილის სტრუქტურა */
+        .table-container {
+            flex: 3;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
             overflow: hidden;
-            font-family: 'Noto Sans Georgian', sans-serif;
-            background-color: #0b0c10; /* მუქი ფონი */
-            color: #66fcf1; /* ნეონისფერი ცისფერი ტექსტისთვის */
         }
 
-        /* ანიმაციის ტილოს პოზიციონირება */
-        #bg-canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
+        .balance-table {
             width: 100%;
-            height: 100%;
-            z-index: 1;
+            border-collapse: collapse;
+            font-size: 0.85rem;
         }
 
-        /* კონტენტის ცენტრირება */
-        .content {
-            position: relative;
-            z-index: 2;
+        .balance-table th {
+            background-color: #edf2f7;
+            color: #4a5568;
+            padding: 8px 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            border-bottom: 1px solid var(--border-color);
+            text-align: left;
+        }
+
+        .balance-table td {
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--border-color);
+            vertical-align: middle;
+        }
+
+        .category-row {
+            background-color: #f7fafc;
+            font-weight: bold;
+            color: #4a5568;
+            font-size: 0.8rem;
+        }
+
+        .sub-label {
+            font-weight: 600;
+            color: #4a5568;
+            width: 90px;
+        }
+
+        /* უჯრები */
+        .cells-scroll-area {
+            display: flex;
+            gap: 6px;
+            overflow-x: auto;
+            align-items: center;
+        }
+
+        .num-cell {
+            min-width: 50px;
+            max-width: 50px;
+            height: 28px;
+            text-align: center;
+            border: 1px solid #cbd5e0;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            outline: none;
+            transition: all 0.15s;
+        }
+
+        /* ისრების გაქრობა */
+        .num-cell::-webkit-outer-spin-button,
+        .num-cell::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        .num-cell[type=number] { -moz-appearance: textfield; }
+
+        .num-cell:focus { border-color: var(--primary); }
+
+        .num-cell.filled {
+            background-color: var(--primary-light);
+            border-color: #bee3f8;
+            color: #2b6cb0;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        /* მარჯვენა პანელი - მონიტორინგი */
+        .summary-panel {
+            flex: 1;
             display: flex;
             flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            text-align: center;
-            user-select: none;
+            gap: 10px;
+            min-width: 200px;
+            max-width: 250px;
         }
 
-        h1 {
-            font-size: 5rem;
+        .score-card {
+            padding: 10px;
+            border-radius: 6px;
+            background: var(--gray-bg);
+            border-left: 4px solid var(--primary);
+        }
+
+        .score-card h4 {
             margin: 0;
-            letter-spacing: 3px;
+            color: #718096;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+        }
+
+        .score-card p {
+            margin: 4px 0 0 0;
+            font-size: 1.2rem;
             font-weight: 700;
-            /* ტექსტის მსუბუქი ნათება და ანიმაცია */
-            animation: pulse 3s infinite alternate;
         }
 
-        p {
-            font-size: 1.5rem;
-            margin-top: 15px;
-            color: #c5c6c7;
-            font-weight: 400;
-            opacity: 0.8;
-            letter-spacing: 1px;
+        /* დინამიური ბალანსის კლასები */
+        .score-card.balance-pos { border-left-color: var(--color-pos); background: var(--bg-pos); color: var(--color-pos); }
+        .score-card.balance-neg { border-left-color: var(--color-neg); background: var(--bg-neg); color: var(--color-neg); }
+        .score-card.balance-zero { border-left-color: var(--color-zero); background: var(--bg-zero); color: var(--color-zero); }
+
+        /* პოპაპები (Modals) */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.3);
+            z-index: 999;
         }
 
-        /* მფეთქავი ტექსტის ანიმაცია */
-        @keyframes pulse {
-            0% {
-                transform: scale(1);
-                text-shadow: 0 0 10px rgba(102, 252, 241, 0.4);
-            }
-            100% {
-                transform: scale(1.03);
-                text-shadow: 0 0 30px rgba(102, 252, 241, 0.9), 0 0 50px rgba(102, 252, 241, 0.4);
-            }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 18px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            z-index: 1000;
+            width: 280px;
         }
+
+        .modal h3 { margin-top: 0; font-size: 1rem; color: #1a202c; border-bottom: 1px solid var(--border-color); padding-bottom: 6px; }
+        .modal label { font-size: 0.75rem; font-weight: 600; color: #4a5568; display: block; margin-top: 8px; }
+        .modal input { width: 100%; padding: 6px; margin-top: 4px; box-sizing: border-box; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 0.85rem; outline: none; }
+        
+        .modal-details { background: var(--gray-bg); padding: 8px; border-radius: 4px; margin-top: 10px; font-size: 0.8rem; border: 1px solid var(--border-color); }
+        .modal-details div { margin-bottom: 4px; }
+
+        .btn-group { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+        .btn { padding: 6px 12px; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; font-size: 0.8rem; }
+        .btn-save { background: var(--primary); color: white; }
+        .btn-close { background: #e2e8f0; color: #4a5568; }
     </style>
 </head>
 <body>
 
-    <!-- ფონის ანიმაციისთვის -->
-    <canvas id="bg-canvas"></canvas>
+<div class="header-controls">
+    <h2>პაციენტების ბალანსის ჟურნალი</h2>
+    <button class="btn-add-patient" onclick="createNewPatient()">+ ახალი პაციენტის დამატება</button>
+</div>
 
-    <!-- მთავარი ტექსტი -->
-    <div class="content">
-        <h1>მალე დავბრუნდები</h1>
-        <p>კომპიუტერი დროებით დატოვებულია</p>
+<!-- კონტეინერი სადაც ახალი პაციენტები ჩაემატება -->
+<div id="patients-container"></div>
+
+<!-- პოპაპების ბლოკი (საერთოა ყველასთვის) -->
+<div class="modal-overlay" id="overlay" onclick="closeModals()"></div>
+
+<div class="modal" id="editModal">
+    <h3>მონაცემის დეტალები</h3>
+    <label>მნიშვნელობა</label>
+    <input type="number" id="editValue">
+    <div class="modal-details">
+        <div><strong>დამატების დრო:</strong> <span id="detailTime"></span></div>
+        <div><strong>დანიშნულება:</strong> <span id="detailPurpose"></span></div>
     </div>
+    <div class="btn-group">
+        <button class="btn btn-close" onclick="closeModals()">დახურვა</button>
+        <button class="btn btn-save" id="saveEditBtn">შენახვა</button>
+    </div>
+</div>
 
-    <script>
-        // Canvas-ის კონფიგურაცია
-        const canvas = document.getElementById('bg-canvas');
-        const ctx = canvas.getContext('2d');
+<div class="modal" id="purposeModal">
+    <h3>დანიშნულების დამატება</h3>
+    <label>მიუთითეთ დანიშნულება</label>
+    <input type="text" id="purposeInput" placeholder="მაგ. ფიზიოლოგიური ხსნარი">
+    <div class="btn-group">
+        <button class="btn btn-close" onclick="closeModals()">გაუქმება</button>
+        <button class="btn btn-save" id="savePurposeBtn">შენახვა</button>
+    </div>
+</div>
+
+<script>
+    let activeCell = null;
+    let patientCounter = 0;
+
+    // პირველი პაციენტის ავტომატური დამატება ჩატვირთვისას
+    window.onload = function() {
+        createNewPatient();
+    };
+
+    function createNewPatient() {
+        patientCounter++;
+        const id = 'p' + patientCounter;
         
-        let width, height;
-        let particles = [];
+        const card = document.createElement('div');
+        card.className = 'patient-card';
+        card.id = id;
+        
+        card.innerHTML = `
+            <div class="patient-info-inputs">
+                <div class="info-group">
+                    <label>პაციენტი:</label>
+                    <input type="text" placeholder="სახელი, გვარი">
+                </div>
+                <div class="info-group">
+                    <label>პალატა:</label>
+                    <input type="text" class="room-input" placeholder="№">
+                </div>
+            </div>
+            <div class="workspace">
+                <div class="table-container">
+                    <table class="balance-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 100px;">კატეგორია</th>
+                                <th>მონაცემები</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="category-row"><td colspan="2">მიღება</td></tr>
+                            <tr class="row-iv"><td class="sub-label">I.V</td><td><div class="cells-scroll-area"></div></td></tr>
+                            <tr class="row-po"><td class="sub-label">P.O</td><td><div class="cells-scroll-area"></div></td></tr>
+                            <tr class="category-row"><td colspan="2">გამოყოფა</td></tr>
+                            <tr class="row-output"><td class="sub-label">გამოყოფა</td><td><div class="cells-scroll-area"></div></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="summary-panel">
+                    <div class="score-card">
+                        <h4>მიღება სულ</h4>
+                        <p class="total-input-val">0 მლ</p>
+                    </div>
+                    <div class="score-card balance-card balance-zero">
+                        <h4>ბალანსი</h4>
+                        <p class="final-balance-val">0 მლ</p>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.getElementById('patients-container').appendChild(card);
+        
+        // თითოეულ რიგში საწყისი ცარიელი უჯრის ჩადება
+        addNewCell(card.querySelector('.row-iv .cells-scroll-area'));
+        addNewCell(card.querySelector('.row-po .cells-scroll-area'));
+        addNewCell(card.querySelector('.row-output .cells-scroll-area'));
+    }
 
-        // ეკრანის ზომის ცვლილებაზე რეაგირება
-        function resize() {
-            width = canvas.width = window.innerWidth;
-            height = canvas.height = window.innerHeight;
-            initParticles();
+    function addNewCell(wrapper) {
+        const newInput = document.createElement('input');
+        newInput.type = 'number';
+        newInput.className = 'num-cell';
+        newInput.onchange = function() { handleCellChange(this); };
+        newInput.oncontextmenu = function(e) { handleRightClick(e, this); };
+        newInput.onclick = function() { handleLeftClick(this); };
+        wrapper.appendChild(newInput);
+    }
+
+    // როცა ციფრი იწერება (change ივენთი მუშაობს ენთერის გარეშეც, უჯრიდან გადასვლისას)
+    function handleCellChange(input) {
+        if (input.value !== "") {
+            if (!input.classList.contains('filled')) {
+                input.classList.add('filled');
+                input.dataset.time = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                input.dataset.purpose = input.dataset.purpose || "არ არის მითითებული";
+                
+                addNewCell(input.parentElement);
+            }
+            calculatePatientBalance(input.closest('.patient-card'));
         }
+    }
 
-        window.addEventListener('resize', resize);
+    function handleLeftClick(input) {
+        if (!input.classList.contains('filled')) return;
+        
+        activeCell = input;
+        document.getElementById('editValue').value = input.value;
+        document.getElementById('detailTime').innerText = input.dataset.time || '';
+        document.getElementById('detailPurpose').innerText = input.dataset.purpose || 'ცარიელი';
+        
+        document.getElementById('overlay').style.display = 'block';
+        document.getElementById('editModal').style.display = 'block';
 
-        // ნაწილაკის (Particle) კლასი
-        class Particle {
-            constructor() {
-                this.x = Math.random() * width;
-                this.y = Math.random() * height;
-                this.size = Math.random() * 2 + 0.5; // ზომა
-                this.speedX = Math.random() * 1 - 0.5; // X ღერძზე მოძრაობის სიჩქარე
-                this.speedY = Math.random() * 1 - 0.5; // Y ღერძზე მოძრაობის სიჩქარე
-                this.color = 'rgba(102, 252, 241, 0.8)';
+        document.getElementById('saveEditBtn').onclick = function() {
+            if(document.getElementById('editValue').value !== "") {
+                activeCell.value = document.getElementById('editValue').value;
+                calculatePatientBalance(activeCell.closest('.patient-card'));
+                closeModals();
             }
+        };
+    }
 
-            update() {
-                this.x += this.speedX;
-                this.y += this.speedY;
+    function handleRightClick(event, input) {
+        if (!input.classList.contains('filled')) return;
+        event.preventDefault();
+        
+        activeCell = input;
+        document.getElementById('purposeInput').value = input.dataset.purpose === "არ არის მითითებული" ? "" : input.dataset.purpose;
+        
+        document.getElementById('overlay').style.display = 'block';
+        document.getElementById('purposeModal').style.display = 'block';
 
-                // კედლებიდან ასხლეტა
-                if (this.x < 0 || this.x > width) this.speedX *= -1;
-                if (this.y < 0 || this.y > height) this.speedY *= -1;
-            }
+        document.getElementById('savePurposeBtn').onclick = function() {
+            activeCell.dataset.purpose = document.getElementById('purposeInput').value || "არ არის მითითებული";
+            closeModals();
+        };
+    }
 
-            draw() {
-                ctx.fillStyle = this.color;
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-                ctx.fill();
-            }
+    function closeModals() {
+        document.getElementById('overlay').style.display = 'none';
+        document.getElementById('editModal').style.display = 'none';
+        document.getElementById('purposeModal').style.display = 'none';
+        activeCell = null;
+    }
+
+    // კონკრეტული პაციენტის ბალანსის დათვლა
+    function calculatePatientBalance(patientCard) {
+        let ivTotal = 0;
+        let poTotal = 0;
+        let outputTotal = 0;
+
+        patientCard.querySelectorAll('.row-iv .num-cell.filled').forEach(cell => ivTotal += parseFloat(cell.value) || 0);
+        patientCard.querySelectorAll('.row-po .num-cell.filled').forEach(cell => poTotal += parseFloat(cell.value) || 0);
+        patientCard.querySelectorAll('.row-output .num-cell.filled').forEach(cell => outputTotal += parseFloat(cell.value) || 0);
+
+        let totalInput = ivTotal + poTotal;
+        let finalBalance = totalInput - outputTotal;
+
+        // განახლება ეკრანზე მლ-ით
+        patientCard.querySelector('.total-input-val').innerText = totalInput + " მლ";
+        
+        const balanceValElem = patientCard.querySelector('.final-balance-val');
+        const balanceCard = patientCard.querySelector('.balance-card');
+        
+        balanceValElem.innerText = finalBalance + " მლ";
+
+        // ფერების ლოგიკა
+        balanceCard.className = "score-card balance-card"; // გასუფთავება
+        if (finalBalance > 0) {
+            balanceCard.classList.add('balance-pos');
+        } else if (finalBalance < 0) {
+            balanceCard.classList.add('balance-neg');
+        } else {
+            balanceCard.classList.add('balance-zero');
         }
+    }
+</script>
 
-        // ნაწილაკების ინიციალიზაცია ეკრანის ზომის მიხედვით
-        function initParticles() {
-            particles = [];
-            // რაოდენობის დაანგარიშება ეკრანის ფართობიდან გამომდინარე
-            let numParticles = Math.floor((width * height) / 9000); 
-            for (let i = 0; i < numParticles; i++) {
-                particles.push(new Particle());
-            }
-        }
-
-        // ნაწილაკებს შორის ხაზების გავლება (ქსელის ეფექტი)
-        function connectParticles() {
-            for (let a = 0; a < particles.length; a++) {
-                for (let b = a; b < particles.length; b++) {
-                    let dx = particles[a].x - particles[b].x;
-                    let dy = particles[a].y - particles[b].y;
-                    let distance = dx * dx + dy * dy;
-
-                    // თუ ნაწილაკები ახლოს არიან, ვაერთებთ ხაზით
-                    if (distance < 12000) {
-                        // მანძილის მიხედვით ხაზის გამჭვირვალობის დადგენა
-                        let opacity = 0.15 - (distance / 80000);
-                        ctx.strokeStyle = `rgba(102, 252, 241, ${opacity})`;
-                        ctx.lineWidth = 1;
-                        ctx.beginPath();
-                        ctx.moveTo(particles[a].x, particles[a].y);
-                        ctx.lineTo(particles[b].x, particles[b].y);
-                        ctx.stroke();
-                    }
-                }
-            }
-        }
-
-        // მთავარი ანიმაციის ციკლი
-        function animate() {
-            ctx.clearRect(0, 0, width, height); // წინა კადრის წაშლა
-            
-            for (let i = 0; i < particles.length; i++) {
-                particles[i].update();
-                particles[i].draw();
-            }
-            connectParticles();
-            
-            requestAnimationFrame(animate);
-        }
-
-        // გაშვება
-        resize();
-        animate();
-    </script>
 </body>
 </html>
