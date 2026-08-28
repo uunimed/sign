@@ -12,7 +12,7 @@
             --bg-color: #030712;
             --text-primary: #ffffff;
             --text-secondary: #9ca3af;
-            --accent-color: #00f2fe; /* შეცვლილი ფერი (ელექტრული ცისფერი / ნეონი) */
+            --accent-color: #00f2fe;
         }
 
         * {
@@ -75,7 +75,6 @@
             letter-spacing: 6px;
         }
 
-        /* ჯგუფი, რომელიც ზუსტად უზრუნველყოფს, რომ ხაზი წამზომზე გრძელი არ იყოს */
         .timer-group {
             display: flex;
             flex-direction: column;
@@ -85,21 +84,36 @@
         }
 
         .timer-display {
-            font-size: 13.5vw; /* მაქსიმალურად გაზრდილი ტექსტის ზომა */
+            font-size: 13.5vw;
             font-weight: 900;
             letter-spacing: 4px;
             color: var(--text-primary);
+            display: grid;
+            place-items: center;
+            width: 100%;
+            min-height: 1.2em;
+        }
+
+        /* სადა და ნაზი გადასვლა CSS Grid-ის მეშვეობით */
+        .transition-view {
+            grid-area: 1 / 1;
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 10px;
-            white-space: nowrap;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.8s ease-in-out, visibility 0.8s ease-in-out;
         }
 
-        /* ჰორიზონტალური პროგრესის ზოლის სტილები (სქელი და ზუსტად წამზომის ზომის) */
+        .transition-view.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
         .progress-bar-container {
             width: 100%;
-            height: 16px; /* გაზრდილი სქელი ხაზი */
+            height: 16px;
             background-color: rgba(255, 255, 255, 0.05);
             border-radius: 8px;
             overflow: hidden;
@@ -112,10 +126,9 @@
             background-color: var(--accent-color);
             border-radius: 8px;
             box-shadow: 0 0 16px var(--accent-color);
-            transition: width 1s linear;
+            transition: width 1s linear, background-color 0.5s ease, box-shadow 0.5s ease;
         }
 
-        /* სუფთა ვერტიკალური რულერის სტილი (ციფრები ერთმანეთს რომ არ ეფარებოდეს) */
         .time-box {
             position: relative;
             display: inline-block;
@@ -177,13 +190,22 @@
         }
 
         .separator {
-            color: rgba(0, 242, 254, 0.7);
+            color: #00f2fe; /* ფიქსირებული ფერი, რომელიც არ შეიცვლება */
             animation: pulse 2s infinite;
         }
 
         @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.4; }
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.2; }
+        }
+
+        .blinking-text {
+            animation: blink 0.8s infinite;
         }
 
         @media (max-width: 768px) {
@@ -209,14 +231,18 @@
         <div class="timer-content">
             <div class="timer-label">დარჩენილია</div>
             
-            <!-- წამზომი და ჰორიზონტალური ხაზი ერთად, რომ ხაზი ზუსტად წამზომის სიგრძის იყოს -->
             <div class="timer-group">
                 <div class="timer-display">
-                    <div class="time-box"><span id="hours" class="time-unit">00</span></div>
-                    <span class="separator">:</span>
-                    <div class="time-box"><span id="minutes" class="time-unit">00</span></div>
-                    <span class="separator">:</span>
-                    <div class="time-box"><span id="seconds" class="time-unit">00</span></div>
+                    <div id="clockContainer" class="transition-view active">
+                        <div class="time-box"><span id="hours" class="time-unit">00</span></div>
+                        <span class="separator">:</span>
+                        <div class="time-box"><span id="minutes" class="time-unit">00</span></div>
+                        <span class="separator">:</span>
+                        <div class="time-box"><span id="seconds" class="time-unit">00</span></div>
+                    </div>
+                    <div id="alertText" class="transition-view" style="font-size: 8vw; font-weight: 900; color: #ef4444; white-space: nowrap;">
+                        <span class="blinking-text">მორიგეობა სრულდება</span>
+                    </div>
                 </div>
                 
                 <div class="progress-bar-container">
@@ -235,24 +261,19 @@
 
             const container = currentEl.parentElement;
 
-            // ძველი ციფრის ამოღება და ზემოთ აცილება
             const oldEl = document.createElement('span');
             oldEl.className = 'time-unit old-digit';
             oldEl.textContent = currentEl.textContent;
             container.appendChild(oldEl);
 
-            // ახალი ციფრის მომზადება ქვემოდან ამოსასვლელად
             currentEl.textContent = newValue;
             currentEl.classList.add('new-digit');
 
-            // Reflow-ს გამოძახება
             void currentEl.offsetWidth;
 
-            // ანიმაციების გაშვება
             oldEl.classList.add('slide-out');
             currentEl.classList.add('slide-in');
 
-            // ძველი ელემენტის წაშლა ანიმაციის დასრულების შემდეგ
             setTimeout(() => {
                 oldEl.remove();
                 currentEl.classList.remove('new-digit', 'slide-in');
@@ -285,8 +306,40 @@
             if (progressFraction > 1) progressFraction = 1;
             if (progressFraction < 0) progressFraction = 0;
             
-            // პროგრესის ზოლის სიგანის განახლება პროცენტულად
             progressBar.style.width = (progressFraction * 100) + '%';
+
+            // ბოლო 30 წუთი (30 * 60 * 1000 მილიწამი)
+            const alertThreshold = 30 * 60 * 1000;
+
+            // ფერის ცვლილება მწვანიდან წითლამდე
+            let activeColor;
+            if (diff <= alertThreshold) {
+                activeColor = '#ef4444'; // მკვეთრი წითელი ბოლო 30 წუთში
+            } else {
+                const hue = progressFraction * 120;
+                activeColor = `hsl(${hue}, 100%, 50%)`;
+            }
+            document.documentElement.style.setProperty('--accent-color', activeColor);
+
+            // ბოლო 30 წუთში წამზომისა და ტექსტის მონაცვლეობა (პირველი 5 წამი წამზომი, შემდეგი 5 წამი ტექსტი)
+            const clockContainer = document.getElementById('clockContainer');
+            const alertText = document.getElementById('alertText');
+
+            if (diff <= alertThreshold && diff > 0) {
+                clockContainer.style.color = '#ef4444'; // წამზომი მუქი/მკვეთრი წითელი ბოლო 30 წუთში
+                const isTimerPhase = Math.floor(diff / 5000) % 2 === 0;
+                if (isTimerPhase) {
+                    clockContainer.classList.add('active');
+                    alertText.classList.remove('active');
+                } else {
+                    clockContainer.classList.remove('active');
+                    alertText.classList.add('active');
+                }
+            } else {
+                clockContainer.style.color = '#ffffff';
+                clockContainer.classList.add('active');
+                alertText.classList.remove('active');
+            }
         }
 
         updateTimer();
