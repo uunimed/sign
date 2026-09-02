@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>დოკუმენტების მართვა & ხელმოწერა (Pro) - Supabase</title>
+    <title>დოკუმენტების მართვა</title>
     
     <!-- PDF.js (ვიზუალური ჩვენებისთვის) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
@@ -21,6 +21,23 @@
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         body { background-color: var(--bg-color); color: var(--text-dark); height: 100vh; overflow: hidden; }
+
+        /* --- Custom Scrollbar --- */
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #e2e8f0;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #4f46e5;
+            border-radius: 5px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #4338ca;
+        }
+        /* ------------------------ */
 
         #login-page {
             display: flex; height: 100vh; align-items: center; justify-content: center;
@@ -120,11 +137,10 @@
         .archive-thumb img { width: 100%; height: 100%; object-fit: cover; }
 
         /* Modal Preview Popup */
-        #preview-modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 10000; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(4px); }
-        .modal-content { background: white; border-radius: 12px; width: 100%; max-width: 700px; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.3); }
+        #preview-modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 10000; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+        .modal-content { background: white; border-radius: 12px; width: calc(100vw - 160px); height: calc(100vh - 120px); max-width: 1400px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.3); }
         .modal-header { padding: 15px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; font-weight: bold; font-size: 18px; }
-        .modal-body { padding: 20px; overflow-y: auto; flex: 1; display: flex; justify-content: center; background: #f8fafc; }
-        .modal-body iframe { width: 100%; height: 450px; border: 1px solid var(--border); border-radius: 8px; background: white; }
+        .modal-body { padding: 20px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; align-items: center; background: #cbd5e1; position: relative; }
         .modal-footer { padding: 15px 20px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; }
 
         /* Loading Overlay */
@@ -152,16 +168,17 @@
         <div class="loading-text" id="loading-msg">გთხოვთ მოიცადოთ...</div>
     </div>
 
+    <!-- Modal Preview Popup -->
     <div id="preview-modal">
         <div class="modal-content">
             <div class="modal-header">
-                <span id="modal-title">დოკუმენტის გადახედვა</span>
+                <span id="modal-title">გადახედვა</span>
                 <button class="btn btn-outline" style="padding: 5px 10px;" onclick="closeModal()">
                     <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                 </button>
             </div>
-            <div class="modal-body">
-                <iframe id="modal-iframe" src=""></iframe>
+            <div class="modal-body" id="modal-pdf-container">
+                <!-- პერსონალური PDF კანვასები ჩაიტვირთება აქ -->
             </div>
             <div class="modal-footer" id="modal-footer-actions"></div>
         </div>
@@ -179,7 +196,7 @@
                     <path d="M35 50 C 42 38, 52 56, 62 42 C 68 35, 74 48, 84 44 C 90 41, 96 46, 102 40" stroke="#4f46e5" stroke-width="3" stroke-linecap="round" fill="none"/>
                 </svg>
             </div>
-            <h2>ავტორიზაცია</h2>
+            <h2>ShogiSign</h2>
             <div class="input-group"><label>მომხმარებელი</label><input type="text" id="username" value="alex"></div>
             <div class="input-group"><label>პაროლი</label><input type="password" id="password" value="2911"></div>
             <button type="button" onclick="window.login()">შესვლა</button>
@@ -192,15 +209,15 @@
             <div class="logo-nav">
                 <h2 onclick="location.reload()" style="cursor: pointer;">
                     <svg style="color: var(--primary);" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-                    DocSigner
+                    ShogiSign
                 </h2>
                 <div class="nav-links">
-                    <button id="nav-workspace" class="active" onclick="window.switchView('workspace')">სამუშაო მაგიდა</button>
+                    <button id="nav-workspace" class="active" onclick="window.switchView('workspace')">დოკუმენტის მართვა</button>
                     <button id="nav-archive" onclick="window.switchView('archive')">არქივი</button>
                 </div>
             </div>
             <div class="user-actions">
-                <span style="font-weight: 600; color: var(--text-light);">გამარჯობა, Alex</span>
+                <span style="font-weight: 600; color: var(--text-light);">გამარჯობა, ალექსი</span>
                 <button class="btn btn-outline" onclick="window.logout()">
                     <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
                     გასვლა
@@ -213,7 +230,7 @@
                 <div class="file-upload-wrapper">
                     <div class="upload-btn">
                         <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-                        <span>1. ატვირთეთ დოკუმენტი</span>
+                        <span>ატვირთვა</span>
                     </div>
                     <input type="file" id="docInput" accept="application/pdf">
                 </div>
@@ -221,7 +238,7 @@
                 <div class="file-upload-wrapper">
                     <div class="upload-btn">
                         <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-                        <span id="sigBtnText">2. ატვირთეთ ხელმოწერა</span>
+                        <span id="sigBtnText">ხელმოწერა</span>
                     </div>
                     <input type="file" id="sigInput" accept="image/*">
                 </div>
@@ -237,11 +254,11 @@
                 
                 <button class="btn btn-primary" id="saveArchiveBtn">
                     <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
-                    📤 შენახვა Cloud-ში
+                    ატვირთვა
                 </button>
                 <button class="btn btn-outline" id="downloadBtn">
                     <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                    📥 PDF-ის გადმოწერა
+                    გადმოწერა
                 </button>
             </aside>
 
@@ -256,8 +273,8 @@
 
         <div id="archive-view">
             <div class="archive-header">
-                <h2>📁 ჩემი Cloud არქივი</h2>
-                <input type="text" id="archiveSearch" class="search-box" placeholder="ძებნა სახელით..." oninput="filterArchive()">
+                <h2>არქივი</h2>
+                <input type="text" id="archiveSearch" class="search-box" placeholder="ძებნა..." oninput="filterArchive()">
             </div>
             <div class="archive-grid" id="archiveGrid"></div>
         </div>
@@ -394,7 +411,7 @@
             document.getElementById('docNameInput').value = baseName;
 
             canvasContainer.innerHTML = '';
-            showLoading('დოკუმენტი მუშავდება და იტვირთება...');
+            showLoading('დოკუმენტი მუშავდება');
 
             if (file.type === 'application/pdf') {
                 try {
@@ -412,7 +429,7 @@
                                 return;
                             }
                             try {
-                                document.getElementById('loading-msg').innerText = `იტვირთება გვერდი ${pageNum} / ${pdf.numPages}...`;
+                                document.getElementById('loading-msg').innerText = `აიტვირთა ${pageNum} გვერდი ${pdf.numPages}-დან...`;
                                 
                                 const page = await pdf.getPage(pageNum);
                                 const viewport = page.getViewport({ scale: 2.0 });
@@ -438,7 +455,7 @@
 
                     isDocLoaded = true;
                     document.getElementById('emptyPlaceholder').style.display = 'none';
-                    showToast(`ჩაიტვირთა სულ ${pdf.numPages} გვერდი`, 'success');
+                    showToast(`ჩაიტვირთა ${pdf.numPages} გვერდი`, 'success');
                 } catch(err) {
                     showToast('PDF შეცდომა: ' + err.message, 'error');
                 } finally {
@@ -552,7 +569,6 @@
             container.addEventListener('pointercancel', stopInteract);
         }
 
-        // ორიგინალი ხარისხით და ბუნებრივი მელნის შერწყმით (BlendMode.Multiply) გენერაცია
         async function generateOriginalQualityPDF() {
             if (!originalPdfBytes) return null;
             
@@ -605,8 +621,8 @@
                             y: y,
                             width: width,
                             height: height,
-                            blendMode: PDFLib.BlendMode.Multiply, // აუქმებს თეთრ ფონს და ბუნებრივად აერთიანებს მელანს
-                            opacity: 0.93, // ანიჭებს რეალური მელნის მსუბუქ, ორგანულ ტექსტურას
+                            blendMode: PDFLib.BlendMode.Multiply,
+                            opacity: 0.93,
                         });
                     } else {
                         const radians = (rotation * Math.PI) / 180;
@@ -662,7 +678,7 @@
 
         document.getElementById('saveArchiveBtn').addEventListener('click', async function() {
             if (!isDocLoaded) return showToast("არაფერია შესანახი!", "error");
-            showLoading('იტვირთება Cloud არქივში...');
+            showLoading('იტვირთება...');
             try {
                 const pdfBytes = await generateOriginalQualityPDF();
                 const pdfBlob = new Blob([pdfBytes], { type: 'application/pdf' });
@@ -707,7 +723,7 @@
                 
                 if (dbError) throw new Error("Database შეცდომა: " + dbError.message);
                 
-                showToast("წარმატებით შეინახა Cloud არქივში!", "success");
+                showToast("წარმატებით შეინახა", "success");
             } catch (e) {
                 showToast(e.message, "error");
             } finally {
@@ -762,10 +778,12 @@
             renderArchiveGrid(filtered);
         }
 
-        function openModal(item) {
+        async function openModal(item) {
             const modal = document.getElementById('preview-modal');
             document.getElementById('modal-title').innerText = item.doc_name || 'დოკუმენტი';
-            document.getElementById('modal-iframe').src = item.file_url;
+            
+            const modalPdfContainer = document.getElementById('modal-pdf-container');
+            modalPdfContainer.innerHTML = '<p style="margin: auto; font-weight:600; color: var(--text-light);">იტვირთება დოკუმენტი...</p>';
             
             const footerActions = document.getElementById('modal-footer-actions');
             footerActions.innerHTML = `
@@ -779,11 +797,34 @@
                 </button>
             `;
             modal.style.display = 'flex';
+
+            try {
+                const loadingTask = pdfjsLib.getDocument(item.file_url);
+                const pdf = await loadingTask.promise;
+                modalPdfContainer.innerHTML = '';
+
+                for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                    const page = await pdf.getPage(pageNum);
+                    const viewport = page.getViewport({ scale: 1.5 });
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'page-wrapper';
+                    const canvas = document.createElement('canvas');
+                    canvas.className = 'pdf-page';
+                    canvas.width = viewport.width;
+                    canvas.height = viewport.height;
+                    wrapper.appendChild(canvas);
+                    modalPdfContainer.appendChild(wrapper);
+                    
+                    await page.render({ canvasContext: canvas.getContext('2d'), viewport: viewport }).promise;
+                }
+            } catch (err) {
+                modalPdfContainer.innerHTML = `<p style="color:red; margin:auto;">ვერ მოხერხდა დოკუმენტის ჩატვირთვა: ${err.message}</p>`;
+            }
         }
 
         window.closeModal = function() {
             document.getElementById('preview-modal').style.display = 'none';
-            document.getElementById('modal-iframe').src = '';
+            document.getElementById('modal-pdf-container').innerHTML = '';
         }
 
         window.deleteArchiveDocModal = async function(id, storagePath) {
