@@ -304,6 +304,21 @@
 
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
+        function getWritingLoaderHtml(text = 'გთხოვთ მოიცადოთ...') {
+            return `
+                <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px;">
+                    <svg viewBox="0 0 150 75" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 140px; height: auto;">
+                        <rect x="15" y="8" width="120" height="60" rx="6" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+                        <line x1="30" y1="20" x2="120" y2="20" stroke="#94a3b8" stroke-width="3" stroke-linecap="round"/>
+                        <line x1="30" y1="30" x2="90" y2="30" stroke="#94a3b8" stroke-width="3" stroke-linecap="round"/>
+                        <line x1="30" y1="48" x2="120" y2="48" stroke="#4f46e5" stroke-width="2" stroke-dasharray="3 3"/>
+                        <path class="writing-path" d="M35 50 C 42 38, 52 56, 62 42 C 68 35, 74 48, 84 44 C 90 41, 96 46, 102 40" stroke="#4f46e5" stroke-width="3" stroke-linecap="round" fill="none"/>
+                    </svg>
+                    <span style="font-weight:600; color:var(--text-light);">${text}</span>
+                </div>
+            `;
+        }
+
         function showLoading(msg = 'გთხოვთ მოიცადოთ...') {
             document.getElementById('loading-msg').innerText = msg;
             document.getElementById('loading-overlay').style.display = 'flex';
@@ -764,14 +779,7 @@
             const grid = document.getElementById('archiveGrid');
             grid.innerHTML = `
                 <div style="grid-column:1/-1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; padding:60px;">
-                    <svg viewBox="0 0 150 75" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 140px; height: auto;">
-                        <rect x="15" y="8" width="120" height="60" rx="6" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
-                        <line x1="30" y1="20" x2="120" y2="20" stroke="#94a3b8" stroke-width="3" stroke-linecap="round"/>
-                        <line x1="30" y1="30" x2="90" y2="30" stroke="#94a3b8" stroke-width="3" stroke-linecap="round"/>
-                        <line x1="30" y1="48" x2="120" y2="48" stroke="#4f46e5" stroke-width="2" stroke-dasharray="3 3"/>
-                        <path class="writing-path" d="M35 50 C 42 38, 52 56, 62 42 C 68 35, 74 48, 84 44 C 90 41, 96 46, 102 40" stroke="#4f46e5" stroke-width="3" stroke-linecap="round" fill="none"/>
-                    </svg>
-                    <span style="font-weight:600; color:var(--text-light);">არქივი იტვირთება...</span>
+                    ${getWritingLoaderHtml('არქივი იტვირთება...')}
                 </div>
             `;
             try {
@@ -825,14 +833,7 @@
             const modalPdfContainer = document.getElementById('modal-pdf-container');
             modalPdfContainer.innerHTML = `
                 <div style="margin: auto; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:15px;">
-                    <svg viewBox="0 0 150 75" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 140px; height: auto;">
-                        <rect x="15" y="8" width="120" height="60" rx="6" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
-                        <line x1="30" y1="20" x2="120" y2="20" stroke="#94a3b8" stroke-width="3" stroke-linecap="round"/>
-                        <line x1="30" y1="30" x2="90" y2="30" stroke="#94a3b8" stroke-width="3" stroke-linecap="round"/>
-                        <line x1="30" y1="48" x2="120" y2="48" stroke="#4f46e5" stroke-width="2" stroke-dasharray="3 3"/>
-                        <path class="writing-path" d="M35 50 C 42 38, 52 56, 62 42 C 68 35, 74 48, 84 44 C 90 41, 96 46, 102 40" stroke="#4f46e5" stroke-width="3" stroke-linecap="round" fill="none"/>
-                    </svg>
-                    <span style="font-weight:600; color:var(--text-light);">იტვირთება დოკუმენტი...</span>
+                    ${getWritingLoaderHtml('იტვირთება დოკუმენტი...')}
                 </div>
             `;
             
