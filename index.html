@@ -252,10 +252,11 @@
                     <input type="file" id="docInput" accept="application/pdf">
                 </div>
 
-                <!-- Mode Switcher: Signature vs Date -->
+                <!-- Mode Switcher: Signature vs Date vs Text -->
                 <div style="display: flex; gap: 5px;">
                     <button class="btn btn-outline" id="modeSigBtn" style="flex: 1; border-color: var(--primary); color: var(--primary); font-size: 13px;" onclick="window.setOverlayMode('sig')">ხელმოწერა</button>
                     <button class="btn btn-outline" id="modeDateBtn" style="flex: 1; font-size: 13px;" onclick="window.setOverlayMode('date')">თარიღი</button>
+                    <button class="btn btn-outline" id="modeTextBtn" style="flex: 1; font-size: 13px;" onclick="window.setOverlayMode('text')">ტექსტი</button>
                 </div>
 
                 <!-- Signature Section -->
@@ -270,7 +271,7 @@
                     <img id="sigPreview" style="display:none; max-width:100%; border:1px solid #ccc; border-radius:4px;">
                 </div>
 
-                <!-- Date Section (Handwritten Digit Mapping 1-9, 0, .) -->
+                <!-- Date Section -->
                 <div id="dateToolSection" style="display: none; flex-direction: column; gap: 8px;">
                     <div class="file-upload-wrapper">
                         <div class="upload-btn" style="background:#eef2ff; border-color:var(--primary); color:var(--primary);">
@@ -287,6 +288,25 @@
                     </div>
                     <button class="btn btn-primary" onclick="window.prepareCustomDateOverlay()">თარიღის გენერაცია</button>
                     <img id="datePreview" style="display:none; max-width:100%; border:1px solid #ccc; border-radius:4px; background:white; padding:4px;">
+                </div>
+
+                <!-- Text Section (Dynamic Ink Segmentation for a-z and A-Z) -->
+                <div id="textToolSection" style="display: none; flex-direction: column; gap: 8px;">
+                    <div class="file-upload-wrapper">
+                        <div class="upload-btn" style="background:#eef2ff; border-color:var(--primary); color:var(--primary);">
+                            <svg viewBox="0 0 24 24"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                            <span id="alphabetBtnText">ანბანის შაბლონი (a-z, A-Z)</span>
+                        </div>
+                        <input type="file" id="alphabetInput" accept="image/*">
+                    </div>
+                    <img id="alphabetPreview" style="display:none; max-width:100%; border:1px solid #ccc; border-radius:4px; max-height:80px; object-fit:contain;">
+
+                    <div class="doc-name-group">
+                        <label>ჩაწერეთ ტექსტი</label>
+                        <input type="text" id="customTextInput" placeholder="მაგ: Tiflis">
+                    </div>
+                    <button class="btn btn-primary" onclick="window.prepareCustomTextOverlay()">ტექსტის გენერაცია</button>
+                    <img id="textPreview" style="display:none; max-width:100%; border:1px solid #ccc; border-radius:4px; background:white; padding:4px;">
                 </div>
 
                 <div class="doc-name-group">
@@ -389,6 +409,7 @@
                 showToast('წარმატებით შეხვედით', 'success');
                 loadCloudSignature();
                 loadCloudDigitsTemplate();
+                loadCloudAlphabetTemplate();
             } else {
                 showToast('არასწორი მონაცემები!', 'error');
             }
@@ -431,6 +452,7 @@
                 document.getElementById('app-container').style.display = 'flex';
                 loadCloudSignature();
                 loadCloudDigitsTemplate();
+                loadCloudAlphabetTemplate();
             }
         };
 
@@ -438,8 +460,10 @@
         let sigImage = new Image();
         let dateImage = new Image();
         let digitsTemplateImg = new Image();
-        let isDocLoaded = false, isSigLoaded = false, isDigitsLoaded = false, isDateLoaded = false;
-        let activeOverlayMode = 'sig'; // 'sig' or 'date'
+        let alphabetTemplateImg = new Image();
+        let textImage = new Image();
+        let isDocLoaded = false, isSigLoaded = false, isDigitsLoaded = false, isDateLoaded = false, isAlphabetLoaded = false, isTextLoaded = false;
+        let activeOverlayMode = 'sig';
         let originalPdfBytes = null;
         let archiveDataCache = [];
         let currentModalPdf = null;
@@ -448,23 +472,30 @@
             activeOverlayMode = mode;
             const sigBtn = document.getElementById('modeSigBtn');
             const dateBtn = document.getElementById('modeDateBtn');
+            const textBtn = document.getElementById('modeTextBtn');
             const sigSection = document.getElementById('sigToolSection');
             const dateSection = document.getElementById('dateToolSection');
+            const textSection = document.getElementById('textToolSection');
+
+            sigBtn.style.borderColor = 'var(--border)'; sigBtn.style.color = 'var(--text-dark)';
+            dateBtn.style.borderColor = 'var(--border)'; dateBtn.style.color = 'var(--text-dark)';
+            textBtn.style.borderColor = 'var(--border)'; textBtn.style.color = 'var(--text-dark)';
+            sigSection.style.display = 'none';
+            dateSection.style.display = 'none';
+            textSection.style.display = 'none';
 
             if (mode === 'sig') {
                 sigBtn.style.borderColor = 'var(--primary)';
                 sigBtn.style.color = 'var(--primary)';
-                dateBtn.style.borderColor = 'var(--border)';
-                dateBtn.style.color = 'var(--text-dark)';
                 sigSection.style.display = 'flex';
-                dateSection.style.display = 'none';
-            } else {
+            } else if (mode === 'date') {
                 dateBtn.style.borderColor = 'var(--primary)';
                 dateBtn.style.color = 'var(--primary)';
-                sigBtn.style.borderColor = 'var(--border)';
-                sigBtn.style.color = 'var(--text-dark)';
-                sigSection.style.display = 'none';
                 dateSection.style.display = 'flex';
+            } else if (mode === 'text') {
+                textBtn.style.borderColor = 'var(--primary)';
+                textBtn.style.color = 'var(--primary)';
+                textSection.style.display = 'flex';
             }
         };
 
@@ -491,6 +522,29 @@
             } catch(e) {}
         }
 
+        async function loadCloudAlphabetTemplate() {
+            const cached = localStorage.getItem('shogi_alphabet_template');
+            if (cached) {
+                try {
+                    alphabetTemplateImg = await loadImageAsync(cached);
+                    isAlphabetLoaded = true;
+                    document.getElementById('alphabetPreview').src = cached;
+                    document.getElementById('alphabetPreview').style.display = 'block';
+                    document.getElementById('alphabetBtnText').innerText = 'შაბლონის შეცვლა';
+                } catch(e) {}
+            }
+            try {
+                const { data, error } = await supabaseInstance.storage.from('signatures').download('alex/alphabet_template.png');
+                if (error) return;
+                const url = URL.createObjectURL(data);
+                alphabetTemplateImg = await loadImageAsync(url);
+                isAlphabetLoaded = true;
+                document.getElementById('alphabetPreview').src = url;
+                document.getElementById('alphabetPreview').style.display = 'block';
+                document.getElementById('alphabetBtnText').innerText = 'შაბლონის შეცვლა';
+            } catch(e) {}
+        }
+
         document.getElementById('digitsInput').addEventListener('change', async function(e) {
             const file = e.target.files[0];
             if (!file) return;
@@ -510,6 +564,37 @@
                         document.getElementById('digitsPreview').style.display = 'block';
                         document.getElementById('digitsBtnText').innerText = 'შაბლონის შეცვლა';
                         showToast('ციფრების შაბლონი წარმატებით განახლდა', 'success');
+                    } catch(err) {
+                        showToast('შაბლონის ჩატვირთვის შეცდომა', 'error');
+                    }
+                };
+                reader.readAsDataURL(file);
+            } catch(err) {
+                showToast('შეცდომა: ' + err.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        });
+
+        document.getElementById('alphabetInput').addEventListener('change', async function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            showLoading('ანბანის შაბლონი იტვირთება...');
+            try {
+                const { error } = await supabaseInstance.storage.from('signatures').upload('alex/alphabet_template.png', file, { upsert: true });
+                if (error) throw error;
+                
+                const reader = new FileReader();
+                reader.onload = async function(event) {
+                    const dataUrl = event.target.result;
+                    localStorage.setItem('shogi_alphabet_template', dataUrl);
+                    try {
+                        alphabetTemplateImg = await loadImageAsync(dataUrl);
+                        isAlphabetLoaded = true;
+                        document.getElementById('alphabetPreview').src = dataUrl;
+                        document.getElementById('alphabetPreview').style.display = 'block';
+                        document.getElementById('alphabetBtnText').innerText = 'შაბლონის შეცვლა';
+                        showToast('ანბანის შაბლონი წარმატებით განახლდა', 'success');
                     } catch(err) {
                         showToast('შაბლონის ჩატვირთვის შეცდომა', 'error');
                     }
@@ -618,7 +703,7 @@
                 if (char === '.') {
                     const scaleFactor = targetCharHeight / h;
                     targetW = Math.max(slice.width * scaleFactor * 0.3, targetCharHeight * 0.12);
-                    targetH = targetCharHeight * 0.18; // სრულად დაპატარავებული, ბუნებრივი წერტილი
+                    targetH = targetCharHeight * 0.18;
                 } else {
                     targetW = slice.width * (targetCharHeight / slice.height);
                     targetH = targetCharHeight;
@@ -640,7 +725,7 @@
                 let drawY = 3 * qualityScale;
                 let drawH = item.targetH;
                 if (item.char === '.') {
-                    drawY = 3 * qualityScale + targetCharHeight - item.targetH - (targetCharHeight * 0.12); // ზუსტი ბაზისური განლაგება
+                    drawY = 3 * qualityScale + targetCharHeight - item.targetH - (targetCharHeight * 0.12);
                 }
 
                 outCtx.drawImage(
@@ -661,6 +746,154 @@
                 showToast("თარიღი გენერირებულია წარმატებით!", "success");
             } catch(e) {
                 showToast("თარიღის გენერაციის შეცდომა", "error");
+            }
+        };
+
+        window.prepareCustomTextOverlay = async function() {
+            if (!isAlphabetLoaded || alphabetTemplateImg.naturalWidth === 0) {
+                return showToast("ჯერ ატვირთეთ ანბანის შაბლონის ფოტო (a-z, A-Z)", "error");
+            }
+            const textVal = document.getElementById('customTextInput').value;
+            if (!textVal) return showToast("გთხოვთ ჩაწეროთ ტექსტი!", "error");
+
+            const tCanvas = document.createElement('canvas');
+            const tCtx = tCanvas.getContext('2d');
+            tCanvas.width = alphabetTemplateImg.naturalWidth;
+            tCanvas.height = alphabetTemplateImg.naturalHeight;
+            tCtx.drawImage(alphabetTemplateImg, 0, 0);
+
+            const imgData = tCtx.getImageData(0, 0, tCanvas.width, tCanvas.height);
+            const data = imgData.data;
+            const w = tCanvas.width;
+            const h = tCanvas.height;
+
+            const lowerChars = ['a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z'];
+            const upperChars = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z'];
+            const charSlices = {};
+
+            // დინამიკური ჭრა ინკის მიხედვით ცალკეული რიგებისთვის (როგორც ციფრებშია)
+            function extractDynamicRowSlices(startY, endY, charList) {
+                const colHasInk = new Array(w).fill(false);
+                for (let x = 0; x < w; x++) {
+                    for (let y = Math.floor(startY); y < Math.ceil(endY) && y < h; y++) {
+                        const idx = (y * w + x) * 4;
+                        const r = data[idx], g = data[idx+1], b = data[idx+2], a = data[idx+3];
+                        if (a > 30 && (r < 220 || g < 220 || b < 220)) {
+                            colHasInk[x] = true;
+                            break;
+                        }
+                    }
+                }
+
+                let rawSlices = [];
+                let inChar = false;
+                let startX = 0;
+                for (let x = 0; x < w; x++) {
+                    if (colHasInk[x] && !inChar) {
+                        inChar = true;
+                        startX = x;
+                    } else if (!colHasInk[x] && inChar) {
+                        inChar = false;
+                        if (x - startX >= 2) {
+                            rawSlices.push({ x: startX, width: x - startX });
+                        }
+                    }
+                }
+                if (inChar && w - startX >= 2) {
+                    rawSlices.push({ x: startX, width: w - startX });
+                }
+
+                for (let i = 0; i < charList.length; i++) {
+                    const char = charList[i];
+                    if (i < rawSlices.length) {
+                        const s = rawSlices[i];
+                        let minY = endY, maxY = startY;
+                        let hasVerticalInk = false;
+
+                        for (let x = s.x; x < s.x + s.width; x++) {
+                            for (let y = Math.floor(startY); y < Math.ceil(endY) && y < h; y++) {
+                                const idx = (y * w + x) * 4;
+                                if (data[idx+3] > 30 && (data[idx] < 220 || data[idx+1] < 220 || data[idx+2] < 220)) {
+                                    hasVerticalInk = true;
+                                    if (y < minY) minY = y;
+                                    if (y > maxY) maxY = y;
+                                }
+                            }
+                        }
+                        charSlices[char] = hasVerticalInk ? { x: s.x, y: minY, width: s.width, height: (maxY - minY + 1) } : { x: s.x, y: startY, width: s.width, height: endY - startY };
+                    } else {
+                        const fallbackW = w / charList.length;
+                        const fallbackX = i * fallbackW;
+                        charSlices[char] = { x: fallbackX, y: startY, width: fallbackW, height: endY - startY };
+                    }
+                }
+            }
+
+            // ზედა ნახევარი: პატარა ასოები (a-z)
+            extractDynamicRowSlices(0, h * 0.5, lowerChars);
+            // ქვედა ნახევარი: დიდი ასოები (A-Z)
+            extractDynamicRowSlices(h * 0.5, h, upperChars);
+            
+            // Space-ის მხარდაჭერა
+            charSlices[' '] = { x: 0, y: 0, width: w / 26 * 0.5, height: h * 0.5 };
+
+            const outCanvas = document.createElement('canvas');
+            const outCtx = outCanvas.getContext('2d');
+
+            const qualityScale = 3;
+            const targetCharHeight = 45 * qualityScale;
+            const spacing = 3 * qualityScale;
+
+            let totalOutWidth = 0;
+            const evaluatedChars = [];
+
+            for (let i = 0; i < textVal.length; i++) {
+                const char = textVal[i];
+                const slice = charSlices[char] || charSlices['a'] || { x: 0, y: 0, width: w/26, height: h/2 };
+
+                let targetW, targetH;
+                if (char === ' ') {
+                    targetW = targetCharHeight * 0.3;
+                    targetH = targetCharHeight;
+                } else {
+                    targetW = slice.width * (targetCharHeight / slice.height);
+                    targetH = targetCharHeight;
+                }
+
+                evaluatedChars.push({ char, slice, targetW, targetH });
+                totalOutWidth += targetW + spacing;
+            }
+
+            outCanvas.width = totalOutWidth + (10 * qualityScale);
+            outCanvas.height = targetCharHeight + (10 * qualityScale);
+
+            outCtx.imageSmoothingEnabled = true;
+            outCtx.imageSmoothingQuality = 'high';
+            outCtx.clearRect(0, 0, outCanvas.width, outCanvas.height);
+
+            let currentX = 5 * qualityScale;
+            for (let item of evaluatedChars) {
+                let drawY = 3 * qualityScale;
+                if (item.char !== ' ') {
+                    outCtx.drawImage(
+                        tCanvas,
+                        item.slice.x, item.slice.y, item.slice.width, item.slice.height,
+                        currentX, drawY, item.targetW, item.targetH
+                    );
+                }
+                currentX += item.targetW + spacing;
+            }
+
+            const dataUrl = outCanvas.toDataURL('image/png');
+            try {
+                textImage = await loadImageAsync(dataUrl);
+                isTextLoaded = true;
+                const preview = document.getElementById('textPreview');
+                preview.src = dataUrl;
+                preview.style.display = 'block';
+                showToast("ტექსტი გენერირებულია წარმატებით!", "success");
+            } catch(e) {
+                showToast("ტექსტის გენერაციის შეცდომა", "error");
             }
         };
 
@@ -793,10 +1026,14 @@
                 if (!isSigLoaded || sigImage.naturalWidth === 0) return showToast("ჯერ ატვირთეთ ხელმოწერა!", "error");
                 currentImg = sigImage;
                 defaultWidth = 120;
-            } else {
+            } else if (activeOverlayMode === 'date') {
                 if (!isDateLoaded || dateImage.naturalWidth === 0) return showToast("ჯერ დაგენერირეთ თარიღი!", "error");
                 currentImg = dateImage;
                 defaultWidth = 110;
+            } else if (activeOverlayMode === 'text') {
+                if (!isTextLoaded || textImage.naturalWidth === 0) return showToast("ჯერ დაგენერირეთ ტექსტი!", "error");
+                currentImg = textImage;
+                defaultWidth = 140;
             }
 
             const canvas = wrapper.querySelector('canvas');
@@ -837,7 +1074,7 @@
             wrapper.appendChild(sigDiv);
 
             setupInteractions(sigDiv, resizeHandle, rotateHandle);
-            showToast(activeOverlayMode === 'sig' ? "ხელმოწერა დაემატა" : "თარიღი დაემატა", "success");
+            showToast(activeOverlayMode === 'sig' ? "ხელმოწერა დაემატა" : (activeOverlayMode === 'date' ? "თარიღი დაემატა" : "ტექსტი დაემატა"), "success");
         });
 
         function setupInteractions(container, resizer, rotator) {
