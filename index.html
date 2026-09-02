@@ -3,411 +3,752 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Shift</title>
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <title>დოკუმენტების მართვა & ხელმოწერა (Pro) - Supabase</title>
     
+    <!-- PDF.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <!-- jsPDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
     <style>
         :root {
-            --bg-color: #030712;
-            --text-primary: #ffffff;
-            --text-secondary: #9ca3af;
-            --accent-color: #00f2fe;
+            --primary: #4f46e5; --primary-hover: #4338ca;
+            --bg-color: #f3f4f6; --panel-bg: #ffffff;
+            --text-dark: #1f2937; --text-light: #6b7280; --border: #e5e7eb;
         }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-dark); height: 100vh; overflow: hidden; }
 
-        body {
-            background-color: var(--bg-color);
-            background-image: 
-                radial-gradient(circle at 50% 50%, rgba(0, 242, 254, 0.07) 0%, transparent 60%),
-                linear-gradient(to right, rgba(255,255,255,0.02) 1px, transparent 1px),
-                linear-gradient(to bottom, rgba(255,255,255,0.02) 1px, transparent 1px);
-            background-size: 100% 100%, 50px 50px, 50px 50px;
-            font-family: 'Share Tech Mono', monospace;
-            height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            overflow: hidden;
+        #login-page {
+            display: flex; height: 100vh; align-items: center; justify-content: center;
+            background: url('https://images.unsplash.com/photo-1557683316-973673baf926?q=80&w=2000&auto=format&fit=crop') center/cover no-repeat;
             position: relative;
         }
+        #login-page::before {
+            content: ""; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(5px);
+        }
+        .login-card {
+            position: relative; background: rgba(255, 255, 255, 0.95); padding: 40px 35px;
+            border-radius: 16px; box-shadow: 0 15px 35px rgba(0,0,0,0.2); width: 100%; max-width: 400px; text-align: center; z-index: 1;
+        }
+        .login-icon-wrap {
+            width: 60px; height: 60px; background: #eef2ff; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; margin: 0 auto 20px auto; color: var(--primary);
+        }
+        .login-card h2 { margin-bottom: 25px; color: var(--text-dark); font-size: 24px; }
+        .input-group { margin-bottom: 20px; text-align: left; }
+        .input-group label { display: block; margin-bottom: 8px; font-size: 14px; color: var(--text-light); font-weight: 600; }
+        .login-card input { width: 100%; padding: 14px; border: 1px solid var(--border); border-radius: 8px; font-size: 15px; }
+        .login-card input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1); }
+        .login-card button { width: 100%; padding: 14px; background: var(--primary); color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.3s; margin-top: 10px; }
+        .login-card button:hover { background: var(--primary-hover); }
 
-        #bgCanvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 1;
-            opacity: 0.6;
+        #app-container { display: none; flex-direction: column; height: 100vh; width: 100vw; }
+        .topbar { background: var(--panel-bg); padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .logo-nav { display: flex; align-items: center; gap: 30px; }
+        .logo-nav h2 { display: flex; align-items: center; gap: 10px; color: var(--primary); cursor: pointer; font-size: 20px; }
+        .nav-links button { background: none; border: none; font-size: 16px; color: var(--text-light); cursor: pointer; font-weight: 600; padding: 8px 12px; border-radius: 6px; transition: 0.2s; }
+        .nav-links button:hover, .nav-links button.active { color: var(--primary); background: #eef2ff; }
+        .user-actions { display: flex; align-items: center; gap: 15px; }
+        
+        .btn { display: flex; align-items: center; gap: 8px; padding: 10px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; transition: 0.3s; text-decoration: none; justify-content: center; }
+        .btn-outline { background: white; border: 1px solid var(--border); color: var(--text-dark); }
+        .btn-outline:hover { background: var(--bg-color); }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-hover); }
+        .btn-danger { background: #ef4444; color: white; }
+        .btn-danger:hover { background: #dc2626; }
+
+        .workspace-wrapper { display: flex; flex: 1; overflow: hidden; }
+        .toolbar { width: 300px; background: var(--panel-bg); border-right: 1px solid var(--border); padding: 20px; display: flex; flex-direction: column; gap: 15px; overflow-y: auto; }
+        
+        .file-upload-wrapper { position: relative; width: 100%; }
+        .file-upload-wrapper input[type=file] { position: absolute; left: 0; top: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
+        .upload-btn { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 15px; border: 2px dashed var(--border); border-radius: 8px; background: var(--bg-color); color: var(--text-light); text-align: center; font-size: 13px; font-weight: 600; }
+        .file-upload-wrapper:hover .upload-btn { border-color: var(--primary); color: var(--primary); }
+
+        .doc-name-group { display: flex; flex-direction: column; gap: 5px; }
+        .doc-name-group label { font-size: 13px; font-weight: 600; color: var(--text-light); }
+        .doc-name-group input { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; }
+        .doc-name-group input:focus { outline: none; border-color: var(--primary); }
+
+        .canvas-area { flex: 1; overflow: auto; padding: 30px; display: flex; flex-direction: column; align-items: center; background: #cbd5e1; position: relative; }
+        #canvas-container { display: flex; flex-direction: column; gap: 30px; width: 100%; max-width: 900px; align-items: center; }
+        
+        .empty-placeholder {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            height: 100%; color: var(--text-light); gap: 15px; margin: auto; font-size: 18px; font-weight: 600; text-align: center;
         }
 
-        .timer-wrapper {
-            position: relative;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            width: 100%;
-            z-index: 10;
-            padding: 20px;
+        .page-wrapper { position: relative; display: inline-block; box-shadow: 0 10px 30px rgba(0,0,0,0.15); background: white; margin-bottom: 20px; }
+        canvas.pdf-page { display: block; cursor: crosshair; width: 100% !important; height: auto !important; }
+
+        .signature-overlay {
+            position: absolute; cursor: move; border: 2px dashed var(--primary);
+            background: rgba(79, 70, 229, 0.05); user-select: none; padding: 5px; touch-action: none;
+        }
+        .signature-overlay img { display: block; width: 100%; height: 100%; pointer-events: none; }
+        
+        .sig-delete {
+            position: absolute; top: -12px; right: -12px; background: #ef4444; color: white;
+            border: none; border-radius: 50%; width: 24px; height: 24px; font-weight: bold;
+            font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 10;
+        }
+        .sig-rotate {
+            position: absolute; top: -12px; left: -12px; background: #10b981; color: white;
+            border: none; border-radius: 50%; width: 24px; height: 24px; font-weight: bold;
+            font-size: 12px; cursor: grab; display: flex; align-items: center; justify-content: center; z-index: 10;
+        }
+        .sig-resize {
+            position: absolute; bottom: -6px; right: -6px; width: 14px; height: 14px;
+            background: var(--primary); border: 2px solid white; border-radius: 50%; cursor: nwse-resize; z-index: 10;
         }
 
-        .timer-content {
-            text-align: center;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            gap: 25px;
-        }
+        #archive-view { display: none; flex: 1; padding: 30px; overflow-y: auto; background: var(--bg-color); flex-direction: column; gap: 20px; }
+        .archive-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; }
+        .search-box { padding: 10px 15px; border: 1px solid var(--border); border-radius: 8px; width: 300px; font-size: 14px; background: white; }
+        .search-box:focus { outline: none; border-color: var(--primary); }
 
-        .timer-label {
-            font-family: 'Outfit', sans-serif;
-            font-size: 1.3rem;
-            font-weight: 300;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 6px;
-        }
+        .archive-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 20px; }
+        .archive-item { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); text-align: center; display: flex; flex-direction: column; gap: 10px; cursor: pointer; transition: transform 0.2s; }
+        .archive-item:hover { transform: translateY(-3px); box-shadow: 0 6px 12px rgba(0,0,0,0.1); }
+        .archive-thumb { height: 160px; background: #f8fafc; border: 1px solid var(--border); border-radius: 6px; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative; }
+        .archive-thumb img { width: 100%; height: 100%; object-fit: cover; }
 
-        .timer-group {
-            display: flex;
-            flex-direction: column;
-            width: fit-content;
-            align-items: center;
-            gap: 20px;
-        }
+        #context-menu { display: none; position: absolute; background: #ffffff; border: 1px solid var(--border); box-shadow: 0 4px 12px rgba(0,0,0,0.15); padding: 10px 20px; cursor: pointer; z-index: 1000; border-radius: 6px; font-weight: 600; color: var(--primary); align-items: center; gap: 8px; }
 
-        .timer-display {
-            font-size: 13.5vw;
-            font-weight: 900;
-            letter-spacing: 4px;
-            color: var(--text-primary);
-            display: grid;
-            place-items: center;
-            width: 100%;
-            min-height: 1.2em;
-        }
+        /* Modal Preview Popup */
+        #preview-modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 10000; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(4px); }
+        .modal-content { background: white; border-radius: 12px; width: 100%; max-width: 700px; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.3); }
+        .modal-header { padding: 15px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; font-weight: bold; font-size: 18px; }
+        .modal-body { padding: 20px; overflow-y: auto; flex: 1; display: flex; justify-content: center; background: #f8fafc; }
+        .modal-body iframe { width: 100%; height: 450px; border: 1px solid var(--border); border-radius: 8px; background: white; }
+        .modal-footer { padding: 15px 20px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; }
 
-        /* სადა და ნაზი გადასვლა CSS Grid-ის მეშვეობით */
-        .transition-view {
-            grid-area: 1 / 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            opacity: 0;
-            visibility: hidden;
-            transition: opacity 0.8s ease-in-out, visibility 0.8s ease-in-out;
-        }
+        /* Loading Overlay */
+        #loading-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.8); z-index: 99999; align-items: center; justify-content: center; flex-direction: column; gap: 15px; }
+        .spinner { width: 50px; height: 50px; border: 5px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-text { font-weight: 600; color: var(--text-dark); font-size: 16px; }
 
-        .transition-view.active {
-            opacity: 1;
-            visibility: visible;
-        }
-
-        .progress-bar-container {
-            width: 100%;
-            height: 16px;
-            background-color: rgba(255, 255, 255, 0.05);
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.6);
-        }
-
-        .progress-bar-fill {
-            width: 100%;
-            height: 100%;
-            background-color: var(--accent-color);
-            border-radius: 8px;
-            box-shadow: 0 0 16px var(--accent-color);
-            transition: width 1s linear, background-color 0.5s ease, box-shadow 0.5s ease;
-        }
-
-        .time-box {
-            position: relative;
-            display: inline-block;
-            overflow: hidden;
-            height: 1.1em;
-            vertical-align: bottom;
-            width: 2.2ch;
-            text-align: center;
-        }
-
-        .time-unit {
-            display: block;
-            width: 100%;
-            height: 100%;
-            line-height: 1.1em;
-        }
-
-        .old-digit {
-            position: absolute;
-            top: 0;
-            left: 0;
-        }
-
-        .new-digit {
-            position: absolute;
-            top: 0;
-            left: 0;
-            transform: translateY(100%);
-        }
-
-        .slide-out {
-            animation: rollOut 0.8s cubic-bezier(0.25, 1, 0.5, 1) forwards;
-        }
-
-        .slide-in {
-            animation: rollIn 0.8s cubic-bezier(0.25, 1, 0.5, 1) forwards;
-        }
-
-        @keyframes rollOut {
-            0% {
-                transform: translateY(0);
-                opacity: 1;
-            }
-            100% {
-                transform: translateY(-100%);
-                opacity: 0;
-            }
-        }
-
-        @keyframes rollIn {
-            0% {
-                transform: translateY(100%);
-                opacity: 0;
-            }
-            100% {
-                transform: translateY(0);
-                opacity: 1;
-            }
-        }
-
-        .separator {
-            color: #00f2fe; /* ფიქსირებული ფერი, რომელიც არ შეიცვლება */
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.4; }
-        }
-
-        @keyframes blink {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.2; }
-        }
-
-        .blinking-text {
-            animation: blink 0.8s infinite;
-        }
-
-        @media (max-width: 768px) {
-            .timer-display {
-                font-size: 15vw;
-                letter-spacing: 2px;
-            }
-            .timer-label {
-                font-size: 1rem;
-                letter-spacing: 3px;
-            }
-            .progress-bar-container {
-                height: 12px;
-            }
-        }
+        #toast-container { position: fixed; top: 20px; right: 20px; z-index: 99999; display: flex; flex-direction: column; gap: 10px; }
+        .toast { min-width: 250px; padding: 15px 20px; background: white; color: var(--text-dark); border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); font-weight: 600; transform: translateX(120%); transition: transform 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55); border-left: 5px solid; display: flex; align-items: center; gap: 10px; }
+        .toast.show { transform: translateX(0); }
+        .toast.error { border-left-color: #ef4444; }
+        .toast.success { border-left-color: #10b981; }
+        .toast.info { border-left-color: var(--primary); }
+        
+        svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
     </style>
 </head>
 <body>
 
-    <canvas id="bgCanvas"></canvas>
+    <div id="toast-container"></div>
 
-    <div class="timer-wrapper">
-        <div class="timer-content">
-            <div class="timer-label">დარჩენილია</div>
-            
-            <div class="timer-group">
-                <div class="timer-display">
-                    <div id="clockContainer" class="transition-view active">
-                        <div class="time-box"><span id="hours" class="time-unit">00</span></div>
-                        <span class="separator">:</span>
-                        <div class="time-box"><span id="minutes" class="time-unit">00</span></div>
-                        <span class="separator">:</span>
-                        <div class="time-box"><span id="seconds" class="time-unit">00</span></div>
-                    </div>
-                    <div id="alertText" class="transition-view" style="font-size: 8vw; font-weight: 900; color: #ef4444; white-space: nowrap;">
-                        <span class="blinking-text">მორიგეობა სრულდება</span>
-                    </div>
-                </div>
-                
-                <div class="progress-bar-container">
-                    <div id="progressBar" class="progress-bar-fill"></div>
+    <div id="loading-overlay">
+        <div class="spinner"></div>
+        <div class="loading-text" id="loading-msg">გთხოვთ მოიცადოთ...</div>
+    </div>
+
+    <div id="preview-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span id="modal-title">დოკუმენტის გადახედვა</span>
+                <button class="btn btn-outline" style="padding: 5px 10px;" onclick="closeModal()">
+                    <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <iframe id="modal-iframe" src=""></iframe>
+            </div>
+            <div class="modal-footer" id="modal-footer-actions"></div>
+        </div>
+    </div>
+
+    <!-- Login Page -->
+    <div id="login-page">
+        <div class="login-card" onkeydown="if(event.key === 'Enter') window.login();">
+            <div class="login-icon-wrap">
+                <svg style="width: 32px; height: 32px;" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+            </div>
+            <h2>ავტორიზაცია</h2>
+            <div class="input-group"><label>მომხმარებელი</label><input type="text" id="username" value="alex"></div>
+            <div class="input-group"><label>პაროლი</label><input type="password" id="password" value="2911"></div>
+            <button type="button" onclick="window.login()">შესვლა</button>
+        </div>
+    </div>
+
+    <!-- App Container -->
+    <div id="app-container">
+        <header class="topbar">
+            <div class="logo-nav">
+                <h2 onclick="location.reload()" style="cursor: pointer;">
+                    <svg style="color: var(--primary);" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                    DocSigner
+                </h2>
+                <div class="nav-links">
+                    <button id="nav-workspace" class="active" onclick="window.switchView('workspace')">სამუშაო მაგიდა</button>
+                    <button id="nav-archive" onclick="window.switchView('archive')">არქივი</button>
                 </div>
             </div>
+            <div class="user-actions">
+                <span style="font-weight: 600; color: var(--text-light);">გამარჯობა, Alex</span>
+                <button class="btn btn-outline" onclick="window.logout()">
+                    <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                    გასვლა
+                </button>
+            </div>
+        </header>
+
+        <div id="workspace-view" class="workspace-wrapper">
+            <aside class="toolbar">
+                <div class="file-upload-wrapper">
+                    <div class="upload-btn">
+                        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                        <span>1. ატვირთეთ დოკუმენტი</span>
+                    </div>
+                    <input type="file" id="docInput" accept="application/pdf">
+                </div>
+
+                <div class="file-upload-wrapper">
+                    <div class="upload-btn">
+                        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                        <span id="sigBtnText">2. ატვირთეთ ხელმოწერა</span>
+                    </div>
+                    <input type="file" id="sigInput" accept="image/*">
+                </div>
+                
+                <img id="sigPreview" style="display:none; max-width:100%; border:1px solid #ccc; border-radius:4px; margin-top:5px;">
+
+                <div class="doc-name-group">
+                    <label>დოკუმენტის სახელი</label>
+                    <input type="text" id="docNameInput" value="signed_document">
+                </div>
+
+                <hr style="border: 0; border-top: 1px solid var(--border);">
+                
+                <button class="btn btn-primary" id="saveArchiveBtn">
+                    <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                    📤 შენახვა Cloud-ში
+                </button>
+                <button class="btn btn-outline" id="downloadBtn">
+                    <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    📥 PDF-ის გადმოწერა
+                </button>
+            </aside>
+
+            <main class="canvas-area" id="canvas-area-main">
+                <div class="empty-placeholder" id="emptyPlaceholder">
+                    <svg style="width: 48px; height: 48px; stroke: var(--text-light);" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
+                    <span>ხელმოსაწერი დოკუმენტი არ არის ატვირთული</span>
+                </div>
+                <div id="canvas-container"></div>
+                <div id="context-menu">
+                    <svg viewBox="0 0 24 24" style="width:16px; height:16px;"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    ხელმოწერის დამატება
+                </div>
+            </main>
+        </div>
+
+        <div id="archive-view">
+            <div class="archive-header">
+                <h2>📁 ჩემი Cloud არქივი</h2>
+                <input type="text" id="archiveSearch" class="search-box" placeholder="ძებნა სახელით..." oninput="filterArchive()">
+            </div>
+            <div class="archive-grid" id="archiveGrid"></div>
         </div>
     </div>
 
     <script>
-        const progressBar = document.getElementById('progressBar');
-        
-        function updateElementText(elementId, newValue) {
-            const currentEl = document.getElementById(elementId);
-            if (currentEl.textContent === newValue) return;
+        const supabaseUrl = 'https://prqphtwuopvgjejfvmwo.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBycXBodHd1b3B2Z2plamZ2bXdvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzMzk2ODAsImV4cCI6MjEwMzkxNTY4MH0.R710Je4gstv5OujKlCtQNz_piEcC3IW8dBseZxNvUpo';
+        const supabaseInstance = window.supabase.createClient(supabaseUrl, supabaseKey);
 
-            const container = currentEl.parentElement;
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
-            const oldEl = document.createElement('span');
-            oldEl.className = 'time-unit old-digit';
-            oldEl.textContent = currentEl.textContent;
-            container.appendChild(oldEl);
-
-            currentEl.textContent = newValue;
-            currentEl.classList.add('new-digit');
-
-            void currentEl.offsetWidth;
-
-            oldEl.classList.add('slide-out');
-            currentEl.classList.add('slide-in');
-
-            setTimeout(() => {
-                oldEl.remove();
-                currentEl.classList.remove('new-digit', 'slide-in');
-            }, 800);
+        function showLoading(msg = 'გთხოვთ მოიცადოთ...') {
+            document.getElementById('loading-msg').innerText = msg;
+            document.getElementById('loading-overlay').style.display = 'flex';
         }
 
-        function updateTimer() {
-            const now = new Date();
+        function hideLoading() {
+            document.getElementById('loading-overlay').style.display = 'none';
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
             
-            let targetTime = new Date();
-            targetTime.setHours(9, 0, 0, 0);
+            let iconSvg = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>';
+            if(type === 'success') iconSvg = '<svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>';
+            if(type === 'error') iconSvg = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>';
 
-            const totalCycleTime = 24 * 60 * 60 * 1000;
+            toast.innerHTML = iconSvg + '<span>' + message + '</span>';
+            container.appendChild(toast);
+            setTimeout(() => toast.classList.add('show'), 100);
+            setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 400); }, 5000);
+        }
 
-            if (now >= targetTime) {
-                targetTime.setDate(targetTime.getDate() + 1);
+        window.login = function() {
+            const user = document.getElementById('username').value.trim();
+            const pass = document.getElementById('password').value.trim();
+            if (user === 'alex' && pass === '2911') {
+                sessionStorage.setItem('isLoggedIn', 'true');
+                document.getElementById('login-page').style.display = 'none';
+                document.getElementById('app-container').style.display = 'flex';
+                showToast('წარმატებით შეხვედით', 'success');
+                loadCloudSignature();
+            } else {
+                showToast('არასწორი მონაცემები!', 'error');
             }
+        };
 
-            const diff = targetTime - now;
+        window.logout = function() {    
+            sessionStorage.removeItem('isLoggedIn');
+            location.reload();    
+        };
 
-            const hours = String(Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))).padStart(2, '0');
-            const minutes = String(Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))).padStart(2, '0');
-            const seconds = String(Math.floor((diff % (1000 * 60)) / 1000)).padStart(2, '0');
+        window.switchView = function(view) {
+            document.getElementById('nav-workspace').classList.remove('active');
+            document.getElementById('nav-archive').classList.remove('active');
+            if (view === 'workspace') {
+                document.getElementById('workspace-view').style.display = 'flex';
+                document.getElementById('archive-view').style.display = 'none';
+                document.getElementById('nav-workspace').classList.add('active');
+            } else {
+                document.getElementById('workspace-view').style.display = 'none';
+                document.getElementById('archive-view').style.display = 'flex';
+                document.getElementById('nav-archive').classList.add('active');
+                loadArchive();
+            }
+        };
 
-            updateElementText('hours', hours);
-            updateElementText('minutes', minutes);
-            updateElementText('seconds', seconds);
+        window.onload = function() {
+            if (sessionStorage.getItem('isLoggedIn') === 'true') {
+                document.getElementById('login-page').style.display = 'none';
+                document.getElementById('app-container').style.display = 'flex';
+                loadCloudSignature();
+            }
+        };
 
-            let progressFraction = diff / totalCycleTime;
-            if (progressFraction > 1) progressFraction = 1;
-            if (progressFraction < 0) progressFraction = 0;
+        const canvasContainer = document.getElementById('canvas-container');
+        const contextMenu = document.getElementById('context-menu');
+        let sigImage = new Image();
+        let isDocLoaded = false, isSigLoaded = false;
+        let activeWrapper = null, clickX = 0, clickY = 0;
+        let archiveDataCache = [];
+
+        async function loadCloudSignature() {
+            try {
+                const { data, error } = await supabaseInstance.storage.from('signatures').download('alex/signature.png');
+                if (error) return;
+                const url = URL.createObjectURL(data);
+                sigImage.src = url;
+                sigImage.onload = () => {
+                    isSigLoaded = true;
+                    document.getElementById('sigPreview').src = url;
+                    document.getElementById('sigPreview').style.display = 'block';
+                    document.getElementById('sigBtnText').innerText = 'ხელმოწერის შეცვლა';
+                };
+            } catch(e) {}
+        }
+
+        document.getElementById('sigInput').addEventListener('change', async function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async function(event) {
+                sigImage.src = event.target.result;
+                isSigLoaded = true;
+                document.getElementById('sigPreview').src = event.target.result;
+                document.getElementById('sigPreview').style.display = 'block';
+                document.getElementById('sigBtnText').innerText = 'ხელმოწერის შეცვლა';
+                showLoading('ხელმოწერა იტვირთება...');
+                try {
+                    const { error } = await supabaseInstance.storage.from('signatures').upload('alex/signature.png', file, { upsert: true });
+                    if (error) throw error;
+                    showToast('ხელმოწერა შენახულია', 'success');
+                } catch(err) {
+                    showToast('შეცდომა: ' + err.message, 'error');
+                } finally {
+                    hideLoading();
+                }
+            };
+            reader.readAsDataURL(file);
+        });
+
+        document.getElementById('docInput').addEventListener('change', async function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
             
-            progressBar.style.width = (progressFraction * 100) + '%';
+            let baseName = file.name.replace(/\.[^/.]+$/, "");
+            document.getElementById('docNameInput').value = baseName;
 
-            // ბოლო 30 წუთი (30 * 60 * 1000 მილიწამი)
-            const alertThreshold = 30 * 60 * 1000;
+            canvasContainer.innerHTML = '';
+            showLoading('დოკუმენტი მუშავდება და იტვირთება...');
 
-            // ფერის ცვლილება მწვანიდან წითლამდე
-            let activeColor;
-            if (diff <= alertThreshold) {
-                activeColor = '#ef4444'; // მკვეთრი წითელი ბოლო 30 წუთში
-            } else {
-                const hue = progressFraction * 120;
-                activeColor = `hsl(${hue}, 100%, 50%)`;
+            if (file.type === 'application/pdf') {
+                const reader = new FileReader();
+                reader.onload = async function() {
+                    try {
+                        const typedarray = new Uint8Array(this.result);
+                        const pdf = await pdfjsLib.getDocument(typedarray).promise;
+                        for(let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                            const page = await pdf.getPage(pageNum);
+                            const viewport = page.getViewport({ scale: 2.0 }); // მაღალი ხარისხი დოკუმენტებისთვის
+                            const wrapper = document.createElement('div');
+                            wrapper.className = 'page-wrapper';
+                            const canvas = document.createElement('canvas');
+                            canvas.className = 'pdf-page';
+                            canvas.width = viewport.width;
+                            canvas.height = viewport.height;
+                            wrapper.appendChild(canvas);
+                            canvasContainer.appendChild(wrapper);
+                            await page.render({ canvasContext: canvas.getContext('2d'), viewport: viewport }).promise;
+                        }
+                        isDocLoaded = true;
+                        document.getElementById('emptyPlaceholder').style.display = 'none';
+                        showToast(`ჩაიტვირთა ${pdf.numPages} გვერდი`, 'success');
+                    } catch(err) {
+                        showToast('PDF შეცდომა: ' + err.message, 'error');
+                    } finally {
+                        hideLoading();
+                    }
+                };
+                reader.readAsArrayBuffer(file);
             }
-            document.documentElement.style.setProperty('--accent-color', activeColor);
+        });
 
-            // ბოლო 30 წუთში წამზომისა და ტექსტის მონაცვლეობა (პირველი 5 წამი წამზომი, შემდეგი 5 წამი ტექსტი)
-            const clockContainer = document.getElementById('clockContainer');
-            const alertText = document.getElementById('alertText');
+        canvasContainer.addEventListener('contextmenu', function(e) {
+            const wrapper = e.target.closest('.page-wrapper');
+            if (!wrapper) return;
+            e.preventDefault();
+            if (!isDocLoaded) return showToast("ჯერ ატვირთეთ დოკუმენტი!", "error");
+            if (!isSigLoaded) return showToast("ჯერ ატვირთეთ ხელმოწერა!", "error");
 
-            if (diff <= alertThreshold && diff > 0) {
-                clockContainer.style.color = '#ef4444'; // წამზომი მუქი/მკვეთრი წითელი ბოლო 30 წუთში
-                const isTimerPhase = Math.floor(diff / 5000) % 2 === 0;
-                if (isTimerPhase) {
-                    clockContainer.classList.add('active');
-                    alertText.classList.remove('active');
-                } else {
-                    clockContainer.classList.remove('active');
-                    alertText.classList.add('active');
-                }
-            } else {
-                clockContainer.style.color = '#ffffff';
-                clockContainer.classList.add('active');
-                alertText.classList.remove('active');
-            }
-        }
+            activeWrapper = wrapper;
+            const canvas = wrapper.querySelector('canvas');
+            const rect = canvas.getBoundingClientRect();
+            clickX = (e.clientX - rect.left) * (canvas.width / rect.width);
+            clickY = (e.clientY - rect.top) * (canvas.height / rect.height);
 
-        updateTimer();
-        setInterval(updateTimer, 1000);
+            contextMenu.style.display = 'flex';
+            contextMenu.style.left = e.clientX + 'px';
+            contextMenu.style.top = e.clientY + 'px';
+        });
 
-        // Canvas ანიმაცია ფონისთვის
-        const canvas = document.getElementById('bgCanvas');
-        const ctx = canvas.getContext('2d');
+        document.addEventListener('click', e => {
+            if (!contextMenu.contains(e.target)) contextMenu.style.display = 'none';
+        });
 
-        let width, height;
-        let stars = [];
-        const numStars = 150;
+        contextMenu.addEventListener('click', function() {
+            if (isSigLoaded && activeWrapper) {
+                const sigDiv = document.createElement('div');
+                sigDiv.className = 'signature-overlay';
+                const sigWidth = 180;
+                const sigHeight = (sigImage.height / sigImage.width) * sigWidth;
+                sigDiv.style.width = sigWidth + 'px';
+                sigDiv.style.height = sigHeight + 'px';
+                sigDiv.style.left = (clickX - sigWidth/2) + 'px';
+                sigDiv.style.top = (clickY - sigHeight/2) + 'px';
+                sigDiv.dataset.rotation = '0';
 
-        function resize() {
-            width = canvas.width = window.innerWidth;
-            height = canvas.height = window.innerHeight;
-        }
-
-        function createStars() {
-            stars = [];
-            for (let i = 0; i < numStars; i++) {
-                stars.push({
-                    x: Math.random() * width,
-                    y: Math.random() * height,
-                    z: Math.random() * width
-                });
-            }
-        }
-
-        function moveStars() {
-            for (let i = 0; i < numStars; i++) {
-                const star = stars[i];
-                star.z -= 1;
-                if (star.z <= 0) {
-                    star.z = width;
-                    star.x = Math.random() * width;
-                    star.y = Math.random() * height;
-                }
-            }
-        }
-
-        function drawStars() {
-            ctx.fillStyle = "#030712";
-            ctx.fillRect(0, 0, width, height);
-
-            for (let i = 0; i < numStars; i++) {
-                const star = stars[i];
-                const x = (star.x - width / 2) * (width / star.z) + width / 2;
-                const y = (star.y - height / 2) * (width / star.z) + height / 2;
-                const px = (width / star.z) * 1.5;
+                const imgElement = document.createElement('img');
+                imgElement.src = sigImage.src;
                 
-                ctx.beginPath();
-                ctx.arc(x, y, px, 0, Math.PI * 2);
-                ctx.fillStyle = `rgba(0, 242, 254, ${1 - star.z / width})`;
-                ctx.fill();
+                const delBtn = document.createElement('button');
+                delBtn.className = 'sig-delete';
+                delBtn.innerHTML = '✕';
+                delBtn.onclick = (e) => { e.stopPropagation(); sigDiv.remove(); };
+
+                const resizeHandle = document.createElement('div');
+                resizeHandle.className = 'sig-resize';
+
+                const rotateHandle = document.createElement('div');
+                rotateHandle.className = 'sig-rotate';
+                rotateHandle.innerHTML = '↻';
+
+                sigDiv.appendChild(imgElement);
+                sigDiv.appendChild(delBtn);
+                sigDiv.appendChild(resizeHandle);
+                sigDiv.appendChild(rotateHandle);
+                activeWrapper.appendChild(sigDiv);
+
+                setupInteractions(sigDiv, resizeHandle, rotateHandle);
+                contextMenu.style.display = 'none';
+            }
+        });
+
+        function setupInteractions(container, resizer, rotator) {
+            let isDragging = false, isResizing = false, isRotating = false;
+            let startX, startY, startWidth, startLeft, startTop, centerX, centerY;
+
+            container.addEventListener('pointerdown', function(e) {
+                if (e.target.closest('button') || e.target === resizer || e.target === rotator) return;
+                isDragging = true;
+                startX = e.clientX; startY = e.clientY;
+                startLeft = container.offsetLeft; startTop = container.offsetTop;
+                container.setPointerCapture(e.pointerId);
+                e.preventDefault();
+            });
+
+            resizer.addEventListener('pointerdown', function(e) {
+                isResizing = true;
+                startX = e.clientX; startY = e.clientY;
+                startWidth = container.offsetWidth;
+                resizer.setPointerCapture(e.pointerId);
+                e.stopPropagation();
+                e.preventDefault();
+            });
+
+            rotator.addEventListener('pointerdown', function(e) {
+                isRotating = true;
+                const rect = container.getBoundingClientRect();
+                centerX = rect.left + rect.width / 2;
+                centerY = rect.top + rect.height / 2;
+                rotator.setPointerCapture(e.pointerId);
+                e.stopPropagation();
+                e.preventDefault();
+            });
+
+            container.addEventListener('pointermove', function(e) {
+                if (isDragging) {
+                    container.style.left = (startLeft + (e.clientX - startX)) + 'px';
+                    container.style.top = (startTop + (e.clientY - startY)) + 'px';
+                } else if (isResizing) {
+                    const dx = e.clientX - startX;
+                    container.style.width = Math.max(50, startWidth + dx) + 'px';
+                    container.style.height = 'auto';
+                } else if (isRotating) {
+                    const radians = Math.atan2(e.clientY - centerY, e.clientX - centerX);
+                    let degree = (radians * (180 / Math.PI)) + 90;
+                    container.style.transform = `rotate(${degree}deg)`;
+                    container.dataset.rotation = degree;
+                }
+            });
+
+            const stopInteract = (e) => {
+                isDragging = false; isResizing = false; isRotating = false;
+            };
+
+            container.addEventListener('pointerup', stopInteract);
+            container.addEventListener('pointercancel', stopInteract);
+        }
+
+        async function generateHighQualityPDF() {
+            const { jsPDF } = window.jspdf;
+            const wrappers = document.querySelectorAll('.page-wrapper');
+            if(wrappers.length === 0) return null;
+            let doc = null;
+
+            for(let i = 0; i < wrappers.length; i++) {
+                const wrapper = wrappers[i];
+                const canvas = wrapper.querySelector('.pdf-page');
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = canvas.width;
+                tempCanvas.height = canvas.height;
+                const ctx = tempCanvas.getContext('2d');
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+                ctx.drawImage(canvas, 0, 0);
+                
+                const sigs = wrapper.querySelectorAll('.signature-overlay');
+                for(let sig of sigs) {
+                    const img = sig.querySelector('img');
+                    const canvasRect = canvas.getBoundingClientRect();
+                    const sigRect = sig.getBoundingClientRect();
+                    const scaleX = canvas.width / canvasRect.width;
+                    const scaleY = canvas.height / canvasRect.height;
+                    const left = (sigRect.left - canvasRect.left) * scaleX;
+                    const top = (sigRect.top - canvasRect.top) * scaleY;
+                    const width = sigRect.width * scaleX;
+                    const height = sigRect.height * scaleY;
+                    const rotation = parseFloat(sig.dataset.rotation || 0);
+
+                    ctx.save();
+                    ctx.translate(left + width / 2, top + height / 2);
+                    ctx.rotate(rotation * Math.PI / 180);
+                    ctx.drawImage(img, -width / 2, -height / 2, width, height);
+                    ctx.restore();
+                }
+
+                const imgWidth = canvas.width / 2.0;
+                const imgHeight = canvas.height / 2.0;
+                if (i === 0) {
+                    doc = new jsPDF({ orientation: imgWidth > imgHeight ? 'l' : 'p', unit: 'pt', format: [imgWidth, imgHeight] });
+                } else {
+                    doc.addPage([imgWidth, imgHeight], imgWidth > imgHeight ? 'l' : 'p');
+                }
+                doc.addImage(tempCanvas.toDataURL('image/jpeg', 0.98), 'JPEG', 0, 0, imgWidth, imgHeight);
+            }
+            return doc;
+        }
+
+        document.getElementById('downloadBtn').addEventListener('click', async function() {
+            if (!isDocLoaded) return showToast("დოკუმენტი არ არის ატვირთული!", "error");
+            showLoading('მზადდება გადმოსაწერად...');
+            try {
+                const doc = await generateHighQualityPDF();
+                if (doc) {
+                    let customName = document.getElementById('docNameInput').value.trim() || 'signed_document';
+                    doc.save(`${customName}.pdf`);
+                    showToast('ფაილი გადმოწერილია', 'success');
+                }
+            } catch(err) {
+                showToast('შეცდომა: ' + err.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        });
+
+        document.getElementById('saveArchiveBtn').addEventListener('click', async function() {
+            if (!isDocLoaded) return showToast("არაფერია შესანახი!", "error");
+            showLoading('იტვირთება Cloud არქივში...');
+            try {
+                const docPDF = await generateHighQualityPDF();
+                const pdfBlob = docPDF.output('blob');
+                let customName = document.getElementById('docNameInput').value.trim() || 'signed_document';
+                
+                // ფაილის სახელიდან სპეციალური სიმბოლოებისა და ინტერვალების გაწმენდა Supabase Storage შეცდომების თავიდან ასაცილებლად
+                let sanitizedName = customName.replace(/[^a-zA-Z0-9_-]/g, '_');
+                const fileName = `alex/${sanitizedName}_${Date.now()}.pdf`;
+                
+                const { error: storageError } = await supabaseInstance.storage
+                    .from('documents')
+                    .upload(fileName, pdfBlob, { contentType: 'application/pdf' });
+                
+                if (storageError) throw new Error("Storage შეცდომა: " + storageError.message);
+
+                const { data: urlData } = supabaseInstance.storage
+                    .from('documents')
+                    .getPublicUrl(fileName);
+
+                let thumbUrl = '';
+                const firstCanvas = document.querySelector('.pdf-page');
+                if(firstCanvas) {
+                    const thumbCanvas = document.createElement('canvas');
+                    thumbCanvas.width = 300;
+                    thumbCanvas.height = (firstCanvas.height / firstCanvas.width) * 300;
+                    const tCtx = thumbCanvas.getContext('2d');
+                    tCtx.drawImage(firstCanvas, 0, 0, thumbCanvas.width, thumbCanvas.height);
+                    thumbUrl = thumbCanvas.toDataURL('image/jpeg', 0.8);
+                }
+
+                const { error: dbError } = await supabaseInstance
+                    .from('documents')
+                    .insert([{
+                        id: Date.now(),
+                        date: new Date().toLocaleString('ka-GE'),
+                        file_url: urlData.publicUrl,
+                        storage_path: fileName,
+                        file_size: pdfBlob.size,
+                        user_id: 'alex',
+                        doc_name: customName,
+                        thumbnail: thumbUrl
+                    }]);
+                
+                if (dbError) throw new Error("Database შეცდომა: " + dbError.message);
+                
+                showToast("წარმატებით შეინახა Cloud არქივში!", "success");
+            } catch (e) {
+                showToast(e.message, "error");
+            } finally {
+                hideLoading();
+            }
+        });
+
+        async function loadArchive() {
+            const grid = document.getElementById('archiveGrid');
+            grid.innerHTML = '<p style="grid-column:1/-1; text-align:center;">იტვირთება...</p>';
+            try {
+                const { data, error } = await supabaseInstance.from('documents').select('*').eq('user_id', 'alex').order('id', { ascending: false });
+                if (error) throw error;
+                archiveDataCache = data || [];
+                renderArchiveGrid(archiveDataCache);
+            } catch (e) {
+                grid.innerHTML = '<p style="color:red; grid-column:1/-1; text-align:center;">შეცდომა ბაზასთან კავშირისას.</p>';
             }
         }
 
-        function animate() {
-            moveStars();
-            drawStars();
-            requestAnimationFrame(animate);
+        function renderArchiveGrid(items) {
+            const grid = document.getElementById('archiveGrid');
+            grid.innerHTML = '';
+            if (!items || items.length === 0) {
+                grid.innerHTML = '<p style="color: var(--text-light); grid-column: 1/-1; text-align:center;">არქივი ცარიელია.</p>';
+                return;
+            }
+
+            items.forEach(item => {
+                const sizeText = item.file_size ? (item.file_size / 1024).toFixed(1) + ' KB' : '';
+                const docName = item.doc_name || 'PDF დოკუმენტი';
+                const thumbHtml = item.thumbnail ? `<img src="${item.thumbnail}" alt="Preview">` : '<svg style="width:40px; height:40px; stroke:var(--text-light);" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>';
+
+                const card = document.createElement('div');
+                card.className = 'archive-item';
+                card.onclick = () => openModal(item);
+                card.innerHTML = `
+                    <div class="archive-thumb">${thumbHtml}</div>
+                    <p style="font-size: 14px; font-weight:bold; word-break: break-all;">${docName}</p>
+                    <p style="font-size: 11px; color: var(--text-light);">${item.date} ${sizeText ? '• ' + sizeText : ''}</p>
+                `;
+                grid.appendChild(card);
+            });
         }
 
-        window.addEventListener('resize', resize);
-        resize();
-        createStars();
-        animate();
+        function filterArchive() {
+            const query = document.getElementById('archiveSearch').value.toLowerCase();
+            const filtered = archiveDataCache.filter(item => {
+                const name = (item.doc_name || '').toLowerCase();
+                return name.includes(query);
+            });
+            renderArchiveGrid(filtered);
+        }
+
+        function openModal(item) {
+            const modal = document.getElementById('preview-modal');
+            document.getElementById('modal-title').innerText = item.doc_name || 'დოკუმენტი';
+            document.getElementById('modal-iframe').src = item.file_url;
+            
+            const footerActions = document.getElementById('modal-footer-actions');
+            footerActions.innerHTML = `
+                <a href="${item.file_url}" target="_blank" download="${item.doc_name || 'document'}.pdf" class="btn btn-primary">
+                    <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    გადმოწერა
+                </a>
+                <button class="btn btn-danger" onclick="deleteArchiveDocModal('${item.id}', '${item.storage_path}')">
+                    <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    წაშლა
+                </button>
+            `;
+            modal.style.display = 'flex';
+        }
+
+        window.closeModal = function() {
+            document.getElementById('preview-modal').style.display = 'none';
+            document.getElementById('modal-iframe').src = '';
+        }
+
+        window.deleteArchiveDocModal = async function(id, storagePath) {
+            if(confirm("ნამდვილად გსურთ დოკუმენტის წაშლა?")) {
+                showLoading('იშლება...');
+                try {
+                    await supabaseInstance.from('documents').delete().eq('id', id);
+                    if (storagePath) await supabaseInstance.storage.from('documents').remove([storagePath]);
+                    showToast("წაიშალა", "success");
+                    closeModal();
+                    loadArchive();
+                } catch (e) { 
+                    showToast("წაშლა ვერ მოხერხდა: " + e.message, "error"); 
+                } finally {
+                    hideLoading();
+                }
+            }
+        };
     </script>
 </body>
 </html>
