@@ -339,14 +339,14 @@
         const canvasContainer = document.getElementById('canvas-container');
         let sigImage = new Image();
         let isDocLoaded = false, isSigLoaded = false;
-        let originalPdfBytes = null; // ვინახავთ ორიგინალი PDF-ის ბაიტებს ხარისხის სრულად შესანარჩუნებლად
+        let originalPdfBytes = null;
         let archiveDataCache = [];
 
         async function loadCloudSignature() {
             try {
                 const { data, error } = await supabaseInstance.storage.from('signatures').download('alex/signature.png');
                 if (error) {
-                    console.log("ხელმოწერა ჯერ არ არის ატვირთული ან ხელმისაწვდომი:", error.message);
+                    console.log("ხელმოწერა ჯერ არ არის ატვირთული:", error.message);
                     return;
                 }
                 const url = URL.createObjectURL(data);
@@ -399,7 +399,7 @@
             if (file.type === 'application/pdf') {
                 try {
                     const arrayBuffer = await file.arrayBuffer();
-                    originalPdfBytes = new Uint8Array(arrayBuffer); // ვინახავთ ორიგინალს
+                    originalPdfBytes = new Uint8Array(arrayBuffer);
 
                     const typedarray = new Uint8Array(arrayBuffer);
                     const pdf = await pdfjsLib.getDocument(typedarray).promise;
@@ -447,7 +447,6 @@
             }
         });
 
-        // მარჯვენა კლიკზე ხელმოწერის პირდაპირი დასმა ნებისმიერ გვერდზე
         canvasContainer.addEventListener('contextmenu', function(e) {
             const wrapper = e.target.closest('.page-wrapper');
             if (!wrapper) return;
@@ -553,7 +552,7 @@
             container.addEventListener('pointercancel', stopInteract);
         }
 
-        // ორიგინალი ხარისხის შენარჩუნებით PDF-ის გენერაცია pdf-lib ბიბლიოთეკით
+        // ორიგინალი ხარისხით და ბუნებრივი მელნის შერწყმით (BlendMode.Multiply) გენერაცია
         async function generateOriginalQualityPDF() {
             if (!originalPdfBytes) return null;
             
@@ -561,7 +560,6 @@
             const pages = pdfDoc.getPages();
             const wrappers = document.querySelectorAll('.page-wrapper');
 
-            // ხელმოწერის სურათის მომზადება
             const sigCanvas = document.createElement('canvas');
             sigCanvas.width = sigImage.naturalWidth || sigImage.width || 300;
             sigCanvas.height = sigImage.naturalHeight || sigImage.height || 150;
@@ -597,7 +595,6 @@
                     const width = domWidth * scaleX;
                     const height = domHeight * scaleY;
                     const x = domLeft * scaleX;
-                    // PDF-ში Y ღერძი ქვემოდან იწყება, DOM-ში ზემოდან
                     const y = pdfHeight - (domTop + domHeight) * scaleY;
 
                     const rotation = parseFloat(sig.dataset.rotation || 0);
@@ -608,6 +605,8 @@
                             y: y,
                             width: width,
                             height: height,
+                            blendMode: PDFLib.BlendMode.Multiply, // აუქმებს თეთრ ფონს და ბუნებრივად აერთიანებს მელანს
+                            opacity: 0.93, // ანიჭებს რეალური მელნის მსუბუქ, ორგანულ ტექსტურას
                         });
                     } else {
                         const radians = (rotation * Math.PI) / 180;
@@ -628,6 +627,8 @@
                             y: 0,
                             width: width,
                             height: height,
+                            blendMode: PDFLib.BlendMode.Multiply,
+                            opacity: 0.93,
                         });
                         page.pushOperators(PDFLib.popGraphicsState());
                     }
@@ -650,7 +651,7 @@
                     let customName = document.getElementById('docNameInput').value.trim() || 'signed_document';
                     link.download = `${customName}.pdf`;
                     link.click();
-                    showToast('ფაილი გადმოწერილია მაღალი ხარისხით', 'success');
+                    showToast('ფაილი გადმოწერილია ბუნებრივი ხელმოწერით', 'success');
                 }
             } catch(err) {
                 showToast('შეცდომა: ' + err.message, 'error');
@@ -661,7 +662,7 @@
 
         document.getElementById('saveArchiveBtn').addEventListener('click', async function() {
             if (!isDocLoaded) return showToast("არაფერია შესანახი!", "error");
-            showLoading('იტვირთება Cloud არქივში ორიგინალი ხარისხით...');
+            showLoading('იტვირთება Cloud არქივში...');
             try {
                 const pdfBytes = await generateOriginalQualityPDF();
                 const pdfBlob = new Blob([pdfBytes], { type: 'application/pdf' });
