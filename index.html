@@ -36,18 +36,9 @@
             border-radius: 16px; box-shadow: 0 15px 35px rgba(0,0,0,0.2); width: 100%; max-width: 440px; text-align: center; z-index: 1;
         }
         .login-illustration {
-            margin-bottom: 25px;
-            display: flex;
-            justify-content: center;
-            width: 100%;
+            margin-bottom: 25px; display: flex; justify-content: center; width: 100%;
         }
-        .login-illustration svg {
-            width: 100%;
-            max-width: 220px;
-            height: auto;
-            display: block;
-            margin: 0 auto;
-        }
+        .login-illustration svg { width: 100%; max-width: 220px; height: auto; display: block; margin: 0 auto; }
         .login-card h2 { margin-bottom: 25px; color: var(--text-dark); font-size: 24px; }
         .input-group { margin-bottom: 20px; text-align: left; }
         .input-group label { display: block; margin-bottom: 8px; font-size: 14px; color: var(--text-light); font-weight: 600; }
@@ -128,8 +119,6 @@
         .archive-thumb { height: 160px; background: #f8fafc; border: 1px solid var(--border); border-radius: 6px; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative; }
         .archive-thumb img { width: 100%; height: 100%; object-fit: cover; }
 
-        #context-menu { display: none; position: absolute; background: #ffffff; border: 1px solid var(--border); box-shadow: 0 4px 12px rgba(0,0,0,0.15); padding: 10px 20px; cursor: pointer; z-index: 1000; border-radius: 6px; font-weight: 600; color: var(--primary); align-items: center; gap: 8px; }
-
         /* Modal Preview Popup */
         #preview-modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 10000; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(4px); }
         .modal-content { background: white; border-radius: 12px; width: 100%; max-width: 700px; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.3); }
@@ -182,17 +171,11 @@
     <div id="login-page">
         <div class="login-card" onkeydown="if(event.key === 'Enter') window.login();">
             <div class="login-illustration">
-                <!-- ცენტრში განთავსებული დოკუმენტისა და ხელმოწერის ილუსტრაცია (კალმის გარეშე) -->
                 <svg viewBox="0 0 150 75" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <!-- დოკუმენტის ფონი -->
                     <rect x="15" y="8" width="120" height="60" rx="6" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
                     <line x1="30" y1="20" x2="120" y2="20" stroke="#94a3b8" stroke-width="3" stroke-linecap="round"/>
                     <line x1="30" y1="30" x2="90" y2="30" stroke="#94a3b8" stroke-width="3" stroke-linecap="round"/>
-                    
-                    <!-- ხელმოწერის ხაზი -->
                     <line x1="30" y1="48" x2="120" y2="48" stroke="#4f46e5" stroke-width="2" stroke-dasharray="3 3"/>
-                    
-                    <!-- ხელმოწერა (Scribble) -->
                     <path d="M35 50 C 42 38, 52 56, 62 42 C 68 35, 74 48, 84 44 C 90 41, 96 46, 102 40" stroke="#4f46e5" stroke-width="3" stroke-linecap="round" fill="none"/>
                 </svg>
             </div>
@@ -268,10 +251,6 @@
                     <span>ხელმოსაწერი დოკუმენტი არ არის ატვირთული</span>
                 </div>
                 <div id="canvas-container"></div>
-                <div id="context-menu">
-                    <svg viewBox="0 0 24 24" style="width:16px; height:16px;"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                    ხელმოწერის დამატება
-                </div>
             </main>
         </div>
 
@@ -358,13 +337,11 @@
         };
 
         const canvasContainer = document.getElementById('canvas-container');
-        const contextMenu = document.getElementById('context-menu');
         let sigImage = new Image();
         let isDocLoaded = false, isSigLoaded = false;
-        let activeWrapper = null, clickX = 0, clickY = 0;
         let archiveDataCache = [];
 
-async function loadCloudSignature() {
+        async function loadCloudSignature() {
             try {
                 const { data, error } = await supabaseInstance.storage.from('signatures').download('alex/signature.png');
                 if (error) {
@@ -425,19 +402,38 @@ async function loadCloudSignature() {
                         const typedarray = new Uint8Array(this.result);
                         const pdf = await pdfjsLib.getDocument(typedarray).promise;
                         
-                        for(let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-                            const page = await pdf.getPage(pageNum);
-                            const viewport = page.getViewport({ scale: 2.0 });
-                            const wrapper = document.createElement('div');
-                            wrapper.className = 'page-wrapper';
-                            const canvas = document.createElement('canvas');
-                            canvas.className = 'pdf-page';
-                            canvas.width = viewport.width;
-                            canvas.height = viewport.height;
-                            wrapper.appendChild(canvas);
-                            canvasContainer.appendChild(wrapper);
-                            await page.render({ canvasContext: canvas.getContext('2d'), viewport: viewport }).promise;
-                        }
+                        await new Promise((resolve, reject) => {
+                            let pageNum = 1;
+                            const processNextPage = async () => {
+                                if (pageNum > pdf.numPages) {
+                                    resolve();
+                                    return;
+                                }
+                                try {
+                                    document.getElementById('loading-msg').innerText = `იტვირთება გვერდი ${pageNum} / ${pdf.numPages}...`;
+                                    
+                                    const page = await pdf.getPage(pageNum);
+                                    const viewport = page.getViewport({ scale: 2.0 });
+                                    const wrapper = document.createElement('div');
+                                    wrapper.className = 'page-wrapper';
+                                    const canvas = document.createElement('canvas');
+                                    canvas.className = 'pdf-page';
+                                    canvas.width = viewport.width;
+                                    canvas.height = viewport.height;
+                                    wrapper.appendChild(canvas);
+                                    canvasContainer.appendChild(wrapper);
+                                    
+                                    await page.render({ canvasContext: canvas.getContext('2d'), viewport: viewport }).promise;
+                                    
+                                    pageNum++;
+                                    setTimeout(processNextPage, 5); // delay loop to prevent "infinite loop" error
+                                } catch(e) {
+                                    reject(e);
+                                }
+                            };
+                            processNextPage();
+                        });
+
                         isDocLoaded = true;
                         document.getElementById('emptyPlaceholder').style.display = 'none';
                         showToast(`ჩაიტვირთა სულ ${pdf.numPages} გვერდი`, 'success');
@@ -451,64 +447,55 @@ async function loadCloudSignature() {
             }
         });
 
+        // მარჯვენა კლიკზე ხელმოწერის პირდაპირი დასმა ნებისმიერ გვერდზე
         canvasContainer.addEventListener('contextmenu', function(e) {
             const wrapper = e.target.closest('.page-wrapper');
             if (!wrapper) return;
             e.preventDefault();
+            
             if (!isDocLoaded) return showToast("ჯერ ატვირთეთ დოკუმენტი!", "error");
             if (!isSigLoaded) return showToast("ჯერ ატვირთეთ ხელმოწერა!", "error");
 
-            activeWrapper = wrapper;
             const canvas = wrapper.querySelector('canvas');
             const rect = canvas.getBoundingClientRect();
-            clickX = (e.clientX - rect.left) * (canvas.width / rect.width);
-            clickY = (e.clientY - rect.top) * (canvas.height / rect.height);
+            
+            // მაუსის კოორდინატები გვერდის/კანვასის შიგნით
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
 
-            contextMenu.style.display = 'flex';
-            contextMenu.style.left = e.clientX + 'px';
-            contextMenu.style.top = e.clientY + 'px';
-        });
+            const sigDiv = document.createElement('div');
+            sigDiv.className = 'signature-overlay';
+            const sigWidth = 180;
+            const sigHeight = (sigImage.height / sigImage.width) * sigWidth;
+            sigDiv.style.width = sigWidth + 'px';
+            sigDiv.style.height = sigHeight + 'px';
+            sigDiv.style.left = (x - sigWidth / 2) + 'px';
+            sigDiv.style.top = (y - sigHeight / 2) + 'px';
+            sigDiv.dataset.rotation = '0';
 
-        document.addEventListener('click', e => {
-            if (!contextMenu.contains(e.target)) contextMenu.style.display = 'none';
-        });
+            const imgElement = document.createElement('img');
+            imgElement.src = sigImage.src;
+            
+            const delBtn = document.createElement('button');
+            delBtn.className = 'sig-delete';
+            delBtn.innerHTML = '✕';
+            delBtn.onclick = (event) => { event.stopPropagation(); sigDiv.remove(); };
 
-        contextMenu.addEventListener('click', function() {
-            if (isSigLoaded && activeWrapper) {
-                const sigDiv = document.createElement('div');
-                sigDiv.className = 'signature-overlay';
-                const sigWidth = 180;
-                const sigHeight = (sigImage.height / sigImage.width) * sigWidth;
-                sigDiv.style.width = sigWidth + 'px';
-                sigDiv.style.height = sigHeight + 'px';
-                sigDiv.style.left = (clickX - sigWidth/2) + 'px';
-                sigDiv.style.top = (clickY - sigHeight/2) + 'px';
-                sigDiv.dataset.rotation = '0';
+            const resizeHandle = document.createElement('div');
+            resizeHandle.className = 'sig-resize';
 
-                const imgElement = document.createElement('img');
-                imgElement.src = sigImage.src;
-                
-                const delBtn = document.createElement('button');
-                delBtn.className = 'sig-delete';
-                delBtn.innerHTML = '✕';
-                delBtn.onclick = (e) => { e.stopPropagation(); sigDiv.remove(); };
+            const rotateHandle = document.createElement('div');
+            rotateHandle.className = 'sig-rotate';
+            rotateHandle.innerHTML = '↻';
 
-                const resizeHandle = document.createElement('div');
-                resizeHandle.className = 'sig-resize';
+            sigDiv.appendChild(imgElement);
+            sigDiv.appendChild(delBtn);
+            sigDiv.appendChild(resizeHandle);
+            sigDiv.appendChild(rotateHandle);
+            wrapper.appendChild(sigDiv);
 
-                const rotateHandle = document.createElement('div');
-                rotateHandle.className = 'sig-rotate';
-                rotateHandle.innerHTML = '↻';
-
-                sigDiv.appendChild(imgElement);
-                sigDiv.appendChild(delBtn);
-                sigDiv.appendChild(resizeHandle);
-                sigDiv.appendChild(rotateHandle);
-                activeWrapper.appendChild(sigDiv);
-
-                setupInteractions(sigDiv, resizeHandle, rotateHandle);
-                contextMenu.style.display = 'none';
-            }
+            setupInteractions(sigDiv, resizeHandle, rotateHandle);
+            showToast("ხელმოწერა დაემატა", "success");
         });
 
         function setupInteractions(container, resizer, rotator) {
@@ -573,46 +560,65 @@ async function loadCloudSignature() {
             if(wrappers.length === 0) return null;
             let doc = null;
 
-            for(let i = 0; i < wrappers.length; i++) {
-                const wrapper = wrappers[i];
-                const canvas = wrapper.querySelector('.pdf-page');
-                const tempCanvas = document.createElement('canvas');
-                tempCanvas.width = canvas.width;
-                tempCanvas.height = canvas.height;
-                const ctx = tempCanvas.getContext('2d');
-                ctx.imageSmoothingEnabled = true;
-                ctx.imageSmoothingQuality = 'high';
-                ctx.drawImage(canvas, 0, 0);
-                
-                const sigs = wrapper.querySelectorAll('.signature-overlay');
-                for(let sig of sigs) {
-                    const img = sig.querySelector('img');
-                    const canvasRect = canvas.getBoundingClientRect();
-                    const sigRect = sig.getBoundingClientRect();
-                    const scaleX = canvas.width / canvasRect.width;
-                    const scaleY = canvas.height / canvasRect.height;
-                    const left = (sigRect.left - canvasRect.left) * scaleX;
-                    const top = (sigRect.top - canvasRect.top) * scaleY;
-                    const width = sigRect.width * scaleX;
-                    const height = sigRect.height * scaleY;
-                    const rotation = parseFloat(sig.dataset.rotation || 0);
+            await new Promise((resolve, reject) => {
+                let i = 0;
+                const processGenPage = async () => {
+                    if (i >= wrappers.length) {
+                        resolve();
+                        return;
+                    }
+                    try {
+                        document.getElementById('loading-msg').innerText = `PDF-ის გენერაცია: გვერდი ${i+1} / ${wrappers.length}...`;
+                        
+                        const wrapper = wrappers[i];
+                        const canvas = wrapper.querySelector('.pdf-page');
+                        const tempCanvas = document.createElement('canvas');
+                        tempCanvas.width = canvas.width;
+                        tempCanvas.height = canvas.height;
+                        const ctx = tempCanvas.getContext('2d');
+                        ctx.imageSmoothingEnabled = true;
+                        ctx.imageSmoothingQuality = 'high';
+                        ctx.drawImage(canvas, 0, 0);
+                        
+                        const sigs = wrapper.querySelectorAll('.signature-overlay');
+                        for(let j = 0; j < sigs.length; j++) {
+                            let sig = sigs[j];
+                            const img = sig.querySelector('img');
+                            const canvasRect = canvas.getBoundingClientRect();
+                            const sigRect = sig.getBoundingClientRect();
+                            const scaleX = canvas.width / canvasRect.width;
+                            const scaleY = canvas.height / canvasRect.height;
+                            const left = (sigRect.left - canvasRect.left) * scaleX;
+                            const top = (sigRect.top - canvasRect.top) * scaleY;
+                            const width = sigRect.width * scaleX;
+                            const height = sigRect.height * scaleY;
+                            const rotation = parseFloat(sig.dataset.rotation || 0);
 
-                    ctx.save();
-                    ctx.translate(left + width / 2, top + height / 2);
-                    ctx.rotate(rotation * Math.PI / 180);
-                    ctx.drawImage(img, -width / 2, -height / 2, width, height);
-                    ctx.restore();
-                }
+                            ctx.save();
+                            ctx.translate(left + width / 2, top + height / 2);
+                            ctx.rotate(rotation * Math.PI / 180);
+                            ctx.drawImage(img, -width / 2, -height / 2, width, height);
+                            ctx.restore();
+                        }
 
-                const imgWidth = canvas.width / 2.0;
-                const imgHeight = canvas.height / 2.0;
-                if (i === 0) {
-                    doc = new jsPDF({ orientation: imgWidth > imgHeight ? 'l' : 'p', unit: 'pt', format: [imgWidth, imgHeight] });
-                } else {
-                    doc.addPage([imgWidth, imgHeight], imgWidth > imgHeight ? 'l' : 'p');
-                }
-                doc.addImage(tempCanvas.toDataURL('image/jpeg', 0.98), 'JPEG', 0, 0, imgWidth, imgHeight);
-            }
+                        const imgWidth = canvas.width / 2.0;
+                        const imgHeight = canvas.height / 2.0;
+                        if (i === 0) {
+                            doc = new jsPDF({ orientation: imgWidth > imgHeight ? 'l' : 'p', unit: 'pt', format: [imgWidth, imgHeight] });
+                        } else {
+                            doc.addPage([imgWidth, imgHeight], imgWidth > imgHeight ? 'l' : 'p');
+                        }
+                        doc.addImage(tempCanvas.toDataURL('image/jpeg', 0.98), 'JPEG', 0, 0, imgWidth, imgHeight);
+
+                        i++;
+                        setTimeout(processGenPage, 5); // Prevent "infinite loop" during generation
+                    } catch (e) {
+                        reject(e);
+                    }
+                };
+                processGenPage();
+            });
+            
             return doc;
         }
 
