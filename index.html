@@ -90,8 +90,8 @@
 
         .doc-name-group { display: flex; flex-direction: column; gap: 5px; }
         .doc-name-group label { font-size: 13px; font-weight: 600; color: var(--text-light); }
-        .doc-name-group input { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; }
-        .doc-name-group input:focus { outline: none; border-color: var(--primary); }
+        .doc-name-group input, .doc-name-group select { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; background: white; }
+        .doc-name-group input:focus, .doc-name-group select:focus { outline: none; border-color: var(--primary); }
 
         .canvas-area { flex: 1; overflow: auto; padding: 30px; display: flex; flex-direction: column; align-items: center; background: #cbd5e1; position: relative; }
         #canvas-container { display: flex; flex-direction: column; gap: 30px; width: 100%; max-width: 900px; align-items: center; }
@@ -252,15 +252,42 @@
                     <input type="file" id="docInput" accept="application/pdf">
                 </div>
 
-                <div class="file-upload-wrapper">
-                    <div class="upload-btn">
-                        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-                        <span id="sigBtnText">ხელმოწერა</span>
-                    </div>
-                    <input type="file" id="sigInput" accept="image/*">
+                <!-- Mode Switcher: Signature vs Date -->
+                <div style="display: flex; gap: 5px;">
+                    <button class="btn btn-outline" id="modeSigBtn" style="flex: 1; border-color: var(--primary); color: var(--primary); font-size: 13px;" onclick="window.setOverlayMode('sig')">ხელმოწერა</button>
+                    <button class="btn btn-outline" id="modeDateBtn" style="flex: 1; font-size: 13px;" onclick="window.setOverlayMode('date')">თარიღი</button>
                 </div>
-                
-                <img id="sigPreview" style="display:none; max-width:100%; border:1px solid #ccc; border-radius:4px; margin-top:5px;">
+
+                <!-- Signature Section -->
+                <div id="sigToolSection" style="display: flex; flex-direction: column; gap: 8px;">
+                    <div class="file-upload-wrapper">
+                        <div class="upload-btn">
+                            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                            <span id="sigBtnText">ხელმოწერა</span>
+                        </div>
+                        <input type="file" id="sigInput" accept="image/*">
+                    </div>
+                    <img id="sigPreview" style="display:none; max-width:100%; border:1px solid #ccc; border-radius:4px;">
+                </div>
+
+                <!-- Date Section (Handwritten Digit Mapping 1-9, 0, .) -->
+                <div id="dateToolSection" style="display: none; flex-direction: column; gap: 8px;">
+                    <div class="file-upload-wrapper">
+                        <div class="upload-btn" style="background:#eef2ff; border-color:var(--primary); color:var(--primary);">
+                            <svg viewBox="0 0 24 24"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                            <span id="digitsBtnText">ციფრების შაბლონი (1,2,3,4,5,6,7,8,9,0,.)</span>
+                        </div>
+                        <input type="file" id="digitsInput" accept="image/*">
+                    </div>
+                    <img id="digitsPreview" style="display:none; max-width:100%; border:1px solid #ccc; border-radius:4px; max-height:80px; object-fit:contain;">
+
+                    <div class="doc-name-group">
+                        <label>აირჩიეთ თარიღი</label>
+                        <input type="date" id="dateInput">
+                    </div>
+                    <button class="btn btn-primary" onclick="window.prepareCustomDateOverlay()">თარიღის გენერაცია</button>
+                    <img id="datePreview" style="display:none; max-width:100%; border:1px solid #ccc; border-radius:4px; background:white; padding:4px;">
+                </div>
 
                 <div class="doc-name-group">
                     <label>დოკუმენტის სახელი</label>
@@ -343,6 +370,15 @@
             setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 400); }, 5000);
         }
 
+        function loadImageAsync(src) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => resolve(img);
+                img.onerror = reject;
+                img.src = src;
+            });
+        }
+
         window.login = function() {
             const user = document.getElementById('username').value.trim();
             const pass = document.getElementById('password').value.trim();
@@ -352,6 +388,7 @@
                 document.getElementById('app-container').style.display = 'flex';
                 showToast('წარმატებით შეხვედით', 'success');
                 loadCloudSignature();
+                loadCloudDigitsTemplate();
             } else {
                 showToast('არასწორი მონაცემები!', 'error');
             }
@@ -393,58 +430,292 @@
                 document.getElementById('login-page').style.display = 'none';
                 document.getElementById('app-container').style.display = 'flex';
                 loadCloudSignature();
+                loadCloudDigitsTemplate();
             }
         };
 
         const canvasContainer = document.getElementById('canvas-container');
         let sigImage = new Image();
-        let isDocLoaded = false, isSigLoaded = false;
+        let dateImage = new Image();
+        let digitsTemplateImg = new Image();
+        let isDocLoaded = false, isSigLoaded = false, isDigitsLoaded = false, isDateLoaded = false;
+        let activeOverlayMode = 'sig'; // 'sig' or 'date'
         let originalPdfBytes = null;
         let archiveDataCache = [];
         let currentModalPdf = null;
 
-        async function loadCloudSignature() {
+        window.setOverlayMode = function(mode) {
+            activeOverlayMode = mode;
+            const sigBtn = document.getElementById('modeSigBtn');
+            const dateBtn = document.getElementById('modeDateBtn');
+            const sigSection = document.getElementById('sigToolSection');
+            const dateSection = document.getElementById('dateToolSection');
+
+            if (mode === 'sig') {
+                sigBtn.style.borderColor = 'var(--primary)';
+                sigBtn.style.color = 'var(--primary)';
+                dateBtn.style.borderColor = 'var(--border)';
+                dateBtn.style.color = 'var(--text-dark)';
+                sigSection.style.display = 'flex';
+                dateSection.style.display = 'none';
+            } else {
+                dateBtn.style.borderColor = 'var(--primary)';
+                dateBtn.style.color = 'var(--primary)';
+                sigBtn.style.borderColor = 'var(--border)';
+                sigBtn.style.color = 'var(--text-dark)';
+                sigSection.style.display = 'none';
+                dateSection.style.display = 'flex';
+            }
+        };
+
+        async function loadCloudDigitsTemplate() {
+            const cached = localStorage.getItem('shogi_digits_template');
+            if (cached) {
+                try {
+                    digitsTemplateImg = await loadImageAsync(cached);
+                    isDigitsLoaded = true;
+                    document.getElementById('digitsPreview').src = cached;
+                    document.getElementById('digitsPreview').style.display = 'block';
+                    document.getElementById('digitsBtnText').innerText = 'შაბლონის შეცვლა';
+                } catch(e) {}
+            }
             try {
-                const { data, error } = await supabaseInstance.storage.from('signatures').download('alex/signature.png');
-                if (error) {
-                    console.log("ხელმოწერა ჯერ არ არის ატვირთული:", error.message);
-                    return;
-                }
+                const { data, error } = await supabaseInstance.storage.from('signatures').download('alex/digits_template.png');
+                if (error) return;
                 const url = URL.createObjectURL(data);
-                sigImage.src = url;
-                sigImage.onload = () => {
+                digitsTemplateImg = await loadImageAsync(url);
+                isDigitsLoaded = true;
+                document.getElementById('digitsPreview').src = url;
+                document.getElementById('digitsPreview').style.display = 'block';
+                document.getElementById('digitsBtnText').innerText = 'შაბლონის შეცვლა';
+            } catch(e) {}
+        }
+
+        document.getElementById('digitsInput').addEventListener('change', async function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            showLoading('შაბლონი იტვირთება...');
+            try {
+                const { error } = await supabaseInstance.storage.from('signatures').upload('alex/digits_template.png', file, { upsert: true });
+                if (error) throw error;
+                
+                const reader = new FileReader();
+                reader.onload = async function(event) {
+                    const dataUrl = event.target.result;
+                    localStorage.setItem('shogi_digits_template', dataUrl);
+                    try {
+                        digitsTemplateImg = await loadImageAsync(dataUrl);
+                        isDigitsLoaded = true;
+                        document.getElementById('digitsPreview').src = dataUrl;
+                        document.getElementById('digitsPreview').style.display = 'block';
+                        document.getElementById('digitsBtnText').innerText = 'შაბლონის შეცვლა';
+                        showToast('ციფრების შაბლონი წარმატებით განახლდა', 'success');
+                    } catch(err) {
+                        showToast('შაბლონის ჩატვირთვის შეცდომა', 'error');
+                    }
+                };
+                reader.readAsDataURL(file);
+            } catch(err) {
+                showToast('შეცდომა: ' + err.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        });
+
+        window.prepareCustomDateOverlay = async function() {
+            if (!isDigitsLoaded || digitsTemplateImg.naturalWidth === 0) {
+                return showToast("ჯერ ატვირთეთ ციფრების შაბლონის ფოტო (1,2,3,4,5,6,7,8,9,0,.)", "error");
+            }
+            const val = document.getElementById('dateInput').value;
+            if (!val) return showToast("გთხოვთ აირჩიოთ თარიღი!", "error");
+
+            const parts = val.split('-');
+            const formattedDate = parts.length === 3 ? `${parts[2]}.${parts[1]}.${parts[0]}` : val;
+
+            const tCanvas = document.createElement('canvas');
+            const tCtx = tCanvas.getContext('2d');
+            tCanvas.width = digitsTemplateImg.naturalWidth;
+            tCanvas.height = digitsTemplateImg.naturalHeight;
+            tCtx.drawImage(digitsTemplateImg, 0, 0);
+
+            const imgData = tCtx.getImageData(0, 0, tCanvas.width, tCanvas.height);
+            const data = imgData.data;
+            const w = tCanvas.width;
+            const h = tCanvas.height;
+
+            const colHasInk = new Array(w).fill(false);
+            for (let x = 0; x < w; x++) {
+                for (let y = 0; y < h; y++) {
+                    const idx = (y * w + x) * 4;
+                    const r = data[idx], g = data[idx+1], b = data[idx+2], a = data[idx+3];
+                    if (a > 30 && (r < 220 || g < 220 || b < 220)) {
+                        colHasInk[x] = true;
+                        break;
+                    }
+                }
+            }
+
+            let rawSlices = [];
+            let inChar = false;
+            let startX = 0;
+            for (let x = 0; x < w; x++) {
+                if (colHasInk[x] && !inChar) {
+                    inChar = true;
+                    startX = x;
+                } else if (!colHasInk[x] && inChar) {
+                    inChar = false;
+                    if (x - startX >= 2) {
+                        rawSlices.push({ x: startX, width: x - startX });
+                    }
+                }
+            }
+            if (inChar && w - startX >= 2) {
+                rawSlices.push({ x: startX, width: w - startX });
+            }
+
+            const charOrder = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '.'];
+            const charSlices = {};
+
+            if (rawSlices.length >= 10) {
+                for (let i = 0; i < Math.min(rawSlices.length, 11); i++) {
+                    const s = rawSlices[i];
+                    let minY = h, maxY = 0, hasVerticalInk = false;
+                    for (let x = s.x; x < s.x + s.width; x++) {
+                        for (let y = 0; y < h; y++) {
+                            const idx = (y * w + Math.floor(x)) * 4;
+                            if (data[idx+3] > 30 && (data[idx] < 220 || data[idx+1] < 220 || data[idx+2] < 220)) {
+                                hasVerticalInk = true;
+                                if (y < minY) minY = y;
+                                if (y > maxY) maxY = y;
+                            }
+                        }
+                    }
+                    const charChar = charOrder[i] || '0';
+                    charSlices[charChar] = hasVerticalInk ? { x: s.x, y: minY, width: s.width, height: (maxY - minY + 1) } : { x: s.x, y: 0, width: s.width, height: h };
+                }
+            } else {
+                const colWidth = w / 11;
+                for (let i = 0; i < 11; i++) {
+                    charSlices[charOrder[i]] = { x: i * colWidth, y: 0, width: colWidth, height: h };
+                }
+            }
+
+            const outCanvas = document.createElement('canvas');
+            const outCtx = outCanvas.getContext('2d');
+            
+            const qualityScale = 3;
+            const targetCharHeight = 45 * qualityScale;
+            const spacing = 4 * qualityScale;
+            
+            let totalOutWidth = 0;
+            const evaluatedChars = [];
+
+            for (let i = 0; i < formattedDate.length; i++) {
+                const char = formattedDate[i];
+                const slice = charSlices[char] || { x: 0, y: 0, width: w/11, height: h };
+                
+                let targetW, targetH;
+                if (char === '.') {
+                    const scaleFactor = targetCharHeight / h;
+                    targetW = Math.max(slice.width * scaleFactor * 0.3, targetCharHeight * 0.12);
+                    targetH = targetCharHeight * 0.18; // სრულად დაპატარავებული, ბუნებრივი წერტილი
+                } else {
+                    targetW = slice.width * (targetCharHeight / slice.height);
+                    targetH = targetCharHeight;
+                }
+
+                evaluatedChars.push({ char, slice, targetW, targetH });
+                totalOutWidth += targetW + (char === '.' ? spacing * 0.4 : spacing);
+            }
+
+            outCanvas.width = totalOutWidth + (10 * qualityScale);
+            outCanvas.height = targetCharHeight + (10 * qualityScale);
+            
+            outCtx.imageSmoothingEnabled = true;
+            outCtx.imageSmoothingQuality = 'high';
+            outCtx.clearRect(0, 0, outCanvas.width, outCanvas.height);
+
+            let currentX = 5 * qualityScale;
+            for (let item of evaluatedChars) {
+                let drawY = 3 * qualityScale;
+                let drawH = item.targetH;
+                if (item.char === '.') {
+                    drawY = 3 * qualityScale + targetCharHeight - item.targetH - (targetCharHeight * 0.12); // ზუსტი ბაზისური განლაგება
+                }
+
+                outCtx.drawImage(
+                    tCanvas,
+                    item.slice.x, item.slice.y, item.slice.width, item.slice.height,
+                    currentX, drawY, item.targetW, drawH
+                );
+                currentX += item.targetW + (item.char === '.' ? spacing * 0.4 : spacing);
+            }
+
+            const dataUrl = outCanvas.toDataURL('image/png');
+            try {
+                dateImage = await loadImageAsync(dataUrl);
+                isDateLoaded = true;
+                const preview = document.getElementById('datePreview');
+                preview.src = dataUrl;
+                preview.style.display = 'block';
+                showToast("თარიღი გენერირებულია წარმატებით!", "success");
+            } catch(e) {
+                showToast("თარიღის გენერაციის შეცდომა", "error");
+            }
+        };
+
+        async function loadCloudSignature() {
+            const cached = localStorage.getItem('shogi_signature');
+            if (cached) {
+                try {
+                    sigImage = await loadImageAsync(cached);
                     isSigLoaded = true;
-                    document.getElementById('sigPreview').src = url;
+                    document.getElementById('sigPreview').src = cached;
                     document.getElementById('sigPreview').style.display = 'block';
                     document.getElementById('sigBtnText').innerText = 'ხელმოწერის შეცვლა';
-                };
-            } catch(e) {
-                console.error("ხელმოწერის ჩატვირთვის შეცდომა:", e);
+                } catch(e) {}
             }
+            try {
+                const { data, error } = await supabaseInstance.storage.from('signatures').download('alex/signature.png');
+                if (error) return;
+                const url = URL.createObjectURL(data);
+                sigImage = await loadImageAsync(url);
+                isSigLoaded = true;
+                document.getElementById('sigPreview').src = url;
+                document.getElementById('sigPreview').style.display = 'block';
+                document.getElementById('sigBtnText').innerText = 'ხელმოწერის შეცვლა';
+            } catch(e) {}
         }
 
         document.getElementById('sigInput').addEventListener('change', async function(e) {
             const file = e.target.files[0];
             if (!file) return;
-            const reader = new FileReader();
-            reader.onload = async function(event) {
-                sigImage.src = event.target.result;
-                isSigLoaded = true;
-                document.getElementById('sigPreview').src = event.target.result;
-                document.getElementById('sigPreview').style.display = 'block';
-                document.getElementById('sigBtnText').innerText = 'ხელმოწერის შეცვლა';
-                showLoading('ხელმოწერა იტვირთება...');
-                try {
-                    const { error } = await supabaseInstance.storage.from('signatures').upload('alex/signature.png', file, { upsert: true });
-                    if (error) throw error;
-                    showToast('ხელმოწერა შენახულია', 'success');
-                } catch(err) {
-                    showToast('შეცდომა: ' + err.message, 'error');
-                } finally {
-                    hideLoading();
-                }
-            };
-            reader.readAsDataURL(file);
+            showLoading('ხელმოწერა იტვირთება...');
+            try {
+                const { error } = await supabaseInstance.storage.from('signatures').upload('alex/signature.png', file, { upsert: true });
+                if (error) throw error;
+
+                const reader = new FileReader();
+                reader.onload = async function(event) {
+                    const dataUrl = event.target.result;
+                    localStorage.setItem('shogi_signature', dataUrl);
+                    try {
+                        sigImage = await loadImageAsync(dataUrl);
+                        isSigLoaded = true;
+                        document.getElementById('sigPreview').src = dataUrl;
+                        document.getElementById('sigPreview').style.display = 'block';
+                        document.getElementById('sigBtnText').innerText = 'ხელმოწერის შეცვლა';
+                        showToast('ხელმოწერა წარმატებით განახლდა', 'success');
+                    } catch(err) {
+                        showToast('ხელმოწერის ჩატვირთვის შეცდომა', 'error');
+                    }
+                };
+                reader.readAsDataURL(file);
+            } catch(err) {
+                showToast('შეცდომა: ' + err.message, 'error');
+            } finally {
+                hideLoading();
+            }
         });
 
         document.getElementById('docInput').addEventListener('change', async function(e) {
@@ -514,7 +785,19 @@
             e.preventDefault();
             
             if (!isDocLoaded) return showToast("ჯერ ატვირთეთ დოკუმენტი!", "error");
-            if (!isSigLoaded) return showToast("ჯერ ატვირთეთ ხელმოწერა!", "error");
+
+            let currentImg = null;
+            let defaultWidth = 120;
+
+            if (activeOverlayMode === 'sig') {
+                if (!isSigLoaded || sigImage.naturalWidth === 0) return showToast("ჯერ ატვირთეთ ხელმოწერა!", "error");
+                currentImg = sigImage;
+                defaultWidth = 120;
+            } else {
+                if (!isDateLoaded || dateImage.naturalWidth === 0) return showToast("ჯერ დაგენერირეთ თარიღი!", "error");
+                currentImg = dateImage;
+                defaultWidth = 110;
+            }
 
             const canvas = wrapper.querySelector('canvas');
             const rect = canvas.getBoundingClientRect();
@@ -524,8 +807,8 @@
 
             const sigDiv = document.createElement('div');
             sigDiv.className = 'signature-overlay';
-            const sigWidth = 120; // ოდნავ მცირე ზომა
-            const sigHeight = (sigImage.height / sigImage.width) * sigWidth;
+            const sigWidth = defaultWidth;
+            const sigHeight = (currentImg.naturalHeight / currentImg.naturalWidth) * sigWidth;
             sigDiv.style.width = sigWidth + 'px';
             sigDiv.style.height = sigHeight + 'px';
             sigDiv.style.left = (x - sigWidth / 2) + 'px';
@@ -533,7 +816,7 @@
             sigDiv.dataset.rotation = '0';
 
             const imgElement = document.createElement('img');
-            imgElement.src = sigImage.src;
+            imgElement.src = currentImg.src;
             
             const delBtn = document.createElement('button');
             delBtn.className = 'sig-delete';
@@ -554,63 +837,94 @@
             wrapper.appendChild(sigDiv);
 
             setupInteractions(sigDiv, resizeHandle, rotateHandle);
-            showToast("ხელმოწერა დაემატა", "success");
+            showToast(activeOverlayMode === 'sig' ? "ხელმოწერა დაემატა" : "თარიღი დაემატა", "success");
         });
 
         function setupInteractions(container, resizer, rotator) {
             let isDragging = false, isResizing = false, isRotating = false;
-            let startX, startY, startWidth, startLeft, startTop, centerX, centerY;
+            let startX, startY, startWidth, startLeft, startTop;
 
             container.addEventListener('pointerdown', function(e) {
                 if (e.target.closest('button') || e.target === resizer || e.target === rotator) return;
                 isDragging = true;
-                startX = e.clientX; startY = e.clientY;
-                startLeft = container.offsetLeft; startTop = container.offsetTop;
-                container.setPointerCapture(e.pointerId);
+                startX = e.clientX;
+                startY = e.clientY;
+                startLeft = container.offsetLeft;
+                startTop = container.offsetTop;
                 e.preventDefault();
+
+                const onPointerMove = (moveEvent) => {
+                    if (isDragging) {
+                        const dx = moveEvent.clientX - startX;
+                        const dy = moveEvent.clientY - startY;
+                        container.style.left = (startLeft + dx) + 'px';
+                        container.style.top = (startTop + dy) + 'px';
+                    }
+                };
+
+                const onPointerUp = () => {
+                    isDragging = false;
+                    window.removeEventListener('pointermove', onPointerMove);
+                    window.removeEventListener('pointerup', onPointerUp);
+                };
+
+                window.addEventListener('pointermove', onPointerMove);
+                window.addEventListener('pointerup', onPointerUp);
             });
 
             resizer.addEventListener('pointerdown', function(e) {
                 isResizing = true;
-                startX = e.clientX; startY = e.clientY;
+                startX = e.clientX;
+                startY = e.clientY;
                 startWidth = container.offsetWidth;
-                resizer.setPointerCapture(e.pointerId);
                 e.stopPropagation();
                 e.preventDefault();
+
+                const onPointerMove = (moveEvent) => {
+                    if (isResizing) {
+                        const dx = moveEvent.clientX - startX;
+                        const newWidth = Math.max(50, startWidth + dx);
+                        container.style.width = newWidth + 'px';
+                        container.style.height = 'auto';
+                    }
+                };
+
+                const onPointerUp = () => {
+                    isResizing = false;
+                    window.removeEventListener('pointermove', onPointerMove);
+                    window.removeEventListener('pointerup', onPointerUp);
+                };
+
+                window.addEventListener('pointermove', onPointerMove);
+                window.addEventListener('pointerup', onPointerUp);
             });
 
             rotator.addEventListener('pointerdown', function(e) {
                 isRotating = true;
-                const rect = container.getBoundingClientRect();
-                centerX = rect.left + rect.width / 2;
-                centerY = rect.top + rect.height / 2;
-                rotator.setPointerCapture(e.pointerId);
                 e.stopPropagation();
                 e.preventDefault();
+
+                const onPointerMove = (moveEvent) => {
+                    if (isRotating) {
+                        const rect = container.getBoundingClientRect();
+                        const cx = rect.left + rect.width / 2;
+                        const cy = rect.top + rect.height / 2;
+                        const radians = Math.atan2(moveEvent.clientY - cy, moveEvent.clientX - cx);
+                        let degree = (radians * (180 / Math.PI)) + 90;
+                        container.style.transform = `rotate(${degree}deg)`;
+                        container.dataset.rotation = degree;
+                    }
+                };
+
+                const onPointerUp = () => {
+                    isRotating = false;
+                    window.removeEventListener('pointermove', onPointerMove);
+                    window.removeEventListener('pointerup', onPointerUp);
+                };
+
+                window.addEventListener('pointermove', onPointerMove);
+                window.addEventListener('pointerup', onPointerUp);
             });
-
-            container.addEventListener('pointermove', function(e) {
-                if (isDragging) {
-                    container.style.left = (startLeft + (e.clientX - startX)) + 'px';
-                    container.style.top = (startTop + (e.clientY - startY)) + 'px';
-                } else if (isResizing) {
-                    const dx = e.clientX - startX;
-                    container.style.width = Math.max(50, startWidth + dx) + 'px';
-                    container.style.height = 'auto';
-                } else if (isRotating) {
-                    const radians = Math.atan2(e.clientY - centerY, e.clientX - centerX);
-                    let degree = (radians * (180 / Math.PI)) + 90;
-                    container.style.transform = `rotate(${degree}deg)`;
-                    container.dataset.rotation = degree;
-                }
-            });
-
-            const stopInteract = (e) => {
-                isDragging = false; isResizing = false; isRotating = false;
-            };
-
-            container.addEventListener('pointerup', stopInteract);
-            container.addEventListener('pointercancel', stopInteract);
         }
 
         async function generateOriginalQualityPDF() {
@@ -619,15 +933,6 @@
             const pdfDoc = await PDFLib.PDFDocument.load(originalPdfBytes);
             const pages = pdfDoc.getPages();
             const wrappers = document.querySelectorAll('.page-wrapper');
-
-            const sigCanvas = document.createElement('canvas');
-            sigCanvas.width = sigImage.naturalWidth || sigImage.width || 300;
-            sigCanvas.height = sigImage.naturalHeight || sigImage.height || 150;
-            const sigCtx = sigCanvas.getContext('2d');
-            sigCtx.drawImage(sigImage, 0, 0);
-            const sigPngDataUrl = sigCanvas.toDataURL('image/png');
-            const sigPngBytes = await fetch(sigPngDataUrl).then(res => res.arrayBuffer());
-            const embeddedSigImage = await pdfDoc.embedPng(sigPngBytes);
 
             for (let i = 0; i < wrappers.length; i++) {
                 if (i >= pages.length) break;
@@ -643,6 +948,21 @@
                 for (let j = 0; j < sigs.length; j++) {
                     const sig = sigs[j];
                     const sigRect = sig.getBoundingClientRect();
+                    const imgEl = sig.querySelector('img');
+                    if (!imgEl) continue;
+
+                    const tempImg = await loadImageAsync(imgEl.src);
+                    if (tempImg.naturalWidth === 0 || tempImg.naturalHeight === 0) continue;
+
+                    const overlayCanvas = document.createElement('canvas');
+                    overlayCanvas.width = tempImg.naturalWidth;
+                    overlayCanvas.height = tempImg.naturalHeight;
+                    const oCtx = overlayCanvas.getContext('2d');
+                    oCtx.drawImage(tempImg, 0, 0);
+
+                    const pngDataUrl = overlayCanvas.toDataURL('image/png');
+                    const pngBytes = await fetch(pngDataUrl).then(res => res.arrayBuffer());
+                    const embeddedOverlayImage = await pdfDoc.embedPng(pngBytes);
 
                     const domLeft = sigRect.left - canvasRect.left;
                     const domTop = sigRect.top - canvasRect.top;
@@ -660,7 +980,7 @@
                     const rotation = parseFloat(sig.dataset.rotation || 0);
 
                     if (rotation === 0) {
-                        page.drawImage(embeddedSigImage, {
+                        page.drawImage(embeddedOverlayImage, {
                             x: x,
                             y: y,
                             width: width,
@@ -682,7 +1002,7 @@
                             ),
                             PDFLib.concatTransformationMatrix(1, 0, 0, 1, -width / 2, -height / 2)
                         );
-                        page.drawImage(embeddedSigImage, {
+                        page.drawImage(embeddedOverlayImage, {
                             x: 0,
                             y: 0,
                             width: width,
