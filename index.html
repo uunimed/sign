@@ -252,11 +252,20 @@
                     <input type="file" id="docInput" accept="application/pdf">
                 </div>
 
-                <!-- Mode Switcher: Signature vs Date vs Text -->
+                <!-- Mode Switcher: Signature vs Date vs Text with SVG Icons -->
                 <div style="display: flex; gap: 5px;">
-                    <button class="btn btn-outline" id="modeSigBtn" style="flex: 1; border-color: var(--primary); color: var(--primary); font-size: 13px;" onclick="window.setOverlayMode('sig')">ხელმოწერა</button>
-                    <button class="btn btn-outline" id="modeDateBtn" style="flex: 1; font-size: 13px;" onclick="window.setOverlayMode('date')">თარიღი</button>
-                    <button class="btn btn-outline" id="modeTextBtn" style="flex: 1; font-size: 13px;" onclick="window.setOverlayMode('text')">ტექსტი</button>
+                    <button class="btn btn-outline" id="modeSigBtn" style="flex: 1; border-color: var(--primary); color: var(--primary); font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 5px;" onclick="window.setOverlayMode('sig')">
+                        <svg viewBox="0 0 24 24" style="width: 16px; height: 16px;"><path d="M12 19l7-7 3 3-7 7-3-3z"></path><path d="M18 13l-1.5-1.5M2 2l20 20M2 22l5-5"></path></svg>
+                        
+                    </button>
+                    <button class="btn btn-outline" id="modeDateBtn" style="flex: 1; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 5px;" onclick="window.setOverlayMode('date')">
+                        <svg viewBox="0 0 24 24" style="width: 16px; height: 16px;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                        
+                    </button>
+                    <button class="btn btn-outline" id="modeTextBtn" style="flex: 1; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 5px;" onclick="window.setOverlayMode('text')">
+                        <svg viewBox="0 0 24 24" style="width: 16px; height: 16px;"><polyline points="4 7 4 4 20 4 20 7"></polyline><line x1="9" y1="20" x2="15" y2="20"></line><line x1="12" y1="4" x2="12" y2="20"></line></svg>
+                        
+                    </button>
                 </div>
 
                 <!-- Signature Section -->
@@ -771,7 +780,6 @@
             const upperChars = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z'];
             const charSlices = {};
 
-            // დინამიკური ჭრა ინკის მიხედვით ცალკეული რიგებისთვის (როგორც ციფრებშია)
             function extractDynamicRowSlices(startY, endY, charList) {
                 const colHasInk = new Array(w).fill(false);
                 for (let x = 0; x < w; x++) {
@@ -829,12 +837,9 @@
                 }
             }
 
-            // ზედა ნახევარი: პატარა ასოები (a-z)
             extractDynamicRowSlices(0, h * 0.5, lowerChars);
-            // ქვედა ნახევარი: დიდი ასოები (A-Z)
             extractDynamicRowSlices(h * 0.5, h, upperChars);
             
-            // Space-ის მხარდაჭერა
             charSlices[' '] = { x: 0, y: 0, width: w / 26 * 0.5, height: h * 0.5 };
 
             const outCanvas = document.createElement('canvas');
