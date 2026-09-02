@@ -136,12 +136,12 @@
         .archive-thumb { height: 160px; background: #f8fafc; border: 1px solid var(--border); border-radius: 6px; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative; }
         .archive-thumb img { width: 100%; height: 100%; object-fit: cover; }
 
-        /* Modal Preview Popup */
+        /* Modal Preview Popup (Wider) */
         #preview-modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 10000; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
-        .modal-content { background: white; border-radius: 12px; width: calc(100vw - 160px); height: calc(100vh - 120px); max-width: 1400px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.3); }
+        .modal-content { background: white; border-radius: 12px; width: 94vw; height: 90vh; max-width: 1700px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.3); }
         .modal-header { padding: 15px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; font-weight: bold; font-size: 18px; }
         .modal-body { padding: 20px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; align-items: center; background: #cbd5e1; position: relative; }
-        .modal-footer { padding: 15px 20px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; }
+        .modal-footer { padding: 15px 20px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; align-items: center; gap: 10px; }
 
         /* Loading Overlay */
         #loading-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.8); z-index: 99999; align-items: center; justify-content: center; flex-direction: column; gap: 15px; }
@@ -207,7 +207,7 @@
     <div id="app-container">
         <header class="topbar">
             <div class="logo-nav">
-                <h2 onclick="location.reload()" style="cursor: pointer;">
+                <h2 onclick="window.resetAppWorkspace()" style="cursor: pointer;">
                     <svg style="color: var(--primary);" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
                     ShogiSign
                 </h2>
@@ -330,6 +330,17 @@
             location.reload();    
         };
 
+        window.resetAppWorkspace = function() {
+            window.switchView('workspace');
+            document.getElementById('docInput').value = '';
+            document.getElementById('docNameInput').value = '';
+            canvasContainer.innerHTML = '';
+            document.getElementById('emptyPlaceholder').style.display = 'flex';
+            isDocLoaded = false;
+            originalPdfBytes = null;
+            showToast('სამუშაო სივრცე განახლდა', 'info');
+        };
+
         window.switchView = function(view) {
             document.getElementById('nav-workspace').classList.remove('active');
             document.getElementById('nav-archive').classList.remove('active');
@@ -358,6 +369,7 @@
         let isDocLoaded = false, isSigLoaded = false;
         let originalPdfBytes = null;
         let archiveDataCache = [];
+        let currentModalPdf = null;
 
         async function loadCloudSignature() {
             try {
@@ -480,7 +492,7 @@
 
             const sigDiv = document.createElement('div');
             sigDiv.className = 'signature-overlay';
-            const sigWidth = 180;
+            const sigWidth = 120; // ოდნავ მცირე ზომა
             const sigHeight = (sigImage.height / sigImage.width) * sigWidth;
             sigDiv.style.width = sigWidth + 'px';
             sigDiv.style.height = sigHeight + 'px';
@@ -733,7 +745,7 @@
 
         async function loadArchive() {
             const grid = document.getElementById('archiveGrid');
-            grid.innerHTML = '<p style="grid-column:1/-1; text-align:center;">იტვირთება...</p>';
+            grid.innerHTML = '<div style="grid-column:1/-1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; padding:50px;"><div class="spinner" style="width:40px; height:40px; border-width:4px;"></div><span style="font-weight:600; color:var(--text-light);">არქივი იტვირთება...</span></div>';
             try {
                 const { data, error } = await supabaseInstance.from('documents').select('*').eq('user_id', 'alex').order('id', { ascending: false });
                 if (error) throw error;
@@ -783,15 +795,20 @@
             document.getElementById('modal-title').innerText = item.doc_name || 'დოკუმენტი';
             
             const modalPdfContainer = document.getElementById('modal-pdf-container');
-            modalPdfContainer.innerHTML = '<p style="margin: auto; font-weight:600; color: var(--text-light);">იტვირთება დოკუმენტი...</p>';
+            modalPdfContainer.innerHTML = '<div style="margin: auto; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:15px;"><div class="spinner"></div><span style="font-weight:600; color:var(--text-light);">იტვირთება დოკუმენტი...</span></div>';
             
             const footerActions = document.getElementById('modal-footer-actions');
             footerActions.innerHTML = `
-                <a href="${item.file_url}" target="_blank" download="${item.doc_name || 'document'}.pdf" class="btn btn-primary">
+                <div style="display:flex; align-items:center; gap:8px; margin-right:auto; font-size:13px; font-weight:600; color:var(--text-light);" id="modal-doc-info">
+                    <span>გვერდი</span>
+                    <input type="number" id="modalPageInput" min="1" value="1" onchange="jumpToModalPage(this.value)" style="width:60px; padding:4px 6px; border-radius:4px; border:1px solid var(--border); font-weight:600; text-align:center;">
+                    <span>/ <span id="modal-total-pages">-</span> დან</span>
+                </div>
+                <button class="btn btn-primary" onclick="downloadArchiveDoc('${item.file_url}', '${item.doc_name || 'document'}')">
                     <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
                     გადმოწერა
-                </a>
-                <button class="btn btn-danger" onclick="deleteArchiveDocModal('${item.id}', '${item.storage_path}')">
+                </button>
+                <button class="btn btn-danger" onclick="showDeleteConfirmation('${item.id}', '${item.storage_path}')">
                     <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                     წაშლა
                 </button>
@@ -801,9 +818,25 @@
             try {
                 const loadingTask = pdfjsLib.getDocument(item.file_url);
                 const pdf = await loadingTask.promise;
+                currentModalPdf = pdf;
+                
+                const pageInput = document.getElementById('modalPageInput');
+                if (pageInput) {
+                    pageInput.max = pdf.numPages;
+                }
+                document.getElementById('modal-total-pages').innerText = pdf.numPages;
+
                 modalPdfContainer.innerHTML = '';
 
                 for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                    const pageWrapperContainer = document.createElement('div');
+                    pageWrapperContainer.id = `modal-page-${pageNum}`;
+                    pageWrapperContainer.className = 'modal-page-item';
+                    pageWrapperContainer.style.display = 'flex';
+                    pageWrapperContainer.style.flexDirection = 'column';
+                    pageWrapperContainer.style.alignItems = 'center';
+                    pageWrapperContainer.style.marginBottom = '20px';
+
                     const page = await pdf.getPage(pageNum);
                     const viewport = page.getViewport({ scale: 1.5 });
                     const wrapper = document.createElement('div');
@@ -813,36 +846,103 @@
                     canvas.width = viewport.width;
                     canvas.height = viewport.height;
                     wrapper.appendChild(canvas);
-                    modalPdfContainer.appendChild(wrapper);
+                    pageWrapperContainer.appendChild(wrapper);
+                    modalPdfContainer.appendChild(pageWrapperContainer);
                     
                     await page.render({ canvasContext: canvas.getContext('2d'), viewport: viewport }).promise;
                 }
+
+                modalPdfContainer.onscroll = function() {
+                    const pageItems = modalPdfContainer.querySelectorAll('.modal-page-item');
+                    let closestPage = 1;
+                    let minDistance = Infinity;
+                    pageItems.forEach((item, index) => {
+                        const rect = item.getBoundingClientRect();
+                        const containerRect = modalPdfContainer.getBoundingClientRect();
+                        const distance = Math.abs(rect.top - containerRect.top);
+                        if (distance < minDistance) {
+                            minDistance = distance;
+                            closestPage = index + 1;
+                        }
+                    });
+                    const input = document.getElementById('modalPageInput');
+                    if (input && document.activeElement !== input) {
+                        input.value = closestPage;
+                    }
+                };
+
             } catch (err) {
                 modalPdfContainer.innerHTML = `<p style="color:red; margin:auto;">ვერ მოხერხდა დოკუმენტის ჩატვირთვა: ${err.message}</p>`;
             }
         }
 
+        window.jumpToModalPage = function(pageNum) {
+            const total = currentModalPdf ? currentModalPdf.numPages : 1;
+            let p = parseInt(pageNum);
+            if (isNaN(p) || p < 1) p = 1;
+            if (p > total) p = total;
+            
+            const input = document.getElementById('modalPageInput');
+            if (input) input.value = p;
+
+            const targetElement = document.getElementById(`modal-page-${p}`);
+            if (targetElement) {
+                targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        };
+
+        window.downloadArchiveDoc = async function(url, filename) {
+            showLoading('მიმდინარეობს გადმოწერა...');
+            try {
+                const response = await fetch(url);
+                const blob = await response.blob();
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = `${filename}.pdf`;
+                link.click();
+                showToast('ფაილი გადმოწერილია', 'success');
+            } catch(e) {
+                showToast('გადმოწერის შეცდომა: ' + e.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        };
+
+        window.showDeleteConfirmation = function(id, storagePath) {
+            const footerActions = document.getElementById('modal-footer-actions');
+            footerActions.innerHTML = `
+                <div style="display:flex; align-items:center; gap:10px; margin-right:auto; font-weight:600; color:#ef4444; font-size:14px;">
+                    <span>ნამდვილად გსურთ დოკუმენტის წაშლა?</span>
+                </div>
+                <button class="btn btn-outline" onclick="openModalFromCache('${id}')">არა</button>
+                <button class="btn btn-danger" onclick="executeDeleteDoc('${id}', '${storagePath}')">დიახ, წაშლა</button>
+            `;
+        };
+
+        window.openModalFromCache = function(id) {
+            const item = archiveDataCache.find(d => d.id == id);
+            if(item) openModal(item);
+        };
+
+        window.executeDeleteDoc = async function(id, storagePath) {
+            showLoading('იშლება...');
+            try {
+                await supabaseInstance.from('documents').delete().eq('id', id);
+                if (storagePath) await supabaseInstance.storage.from('documents').remove([storagePath]);
+                showToast("წაიშალა", "success");
+                closeModal();
+                loadArchive();
+            } catch (e) { 
+                showToast("წაშლა ვერ მოხერხდა: " + e.message, "error"); 
+            } finally {
+                hideLoading();
+            }
+        };
+
         window.closeModal = function() {
             document.getElementById('preview-modal').style.display = 'none';
             document.getElementById('modal-pdf-container').innerHTML = '';
         }
-
-        window.deleteArchiveDocModal = async function(id, storagePath) {
-            if(confirm("ნამდვილად გსურთ დოკუმენტის წაშლა?")) {
-                showLoading('იშლება...');
-                try {
-                    await supabaseInstance.from('documents').delete().eq('id', id);
-                    if (storagePath) await supabaseInstance.storage.from('documents').remove([storagePath]);
-                    showToast("წაიშალა", "success");
-                    closeModal();
-                    loadArchive();
-                } catch (e) { 
-                    showToast("წაშლა ვერ მოხერხდა: " + e.message, "error"); 
-                } finally {
-                    hideLoading();
-                }
-            }
-        };
     </script>
 </body>
 </html>
